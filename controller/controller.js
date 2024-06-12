@@ -1,41 +1,35 @@
-import db from "../db/db.js";
-import bcrypt, { hash } from "bcrypt";
-
-export const addBook = async (req, res) => {
-  console.log(req.body);
-  const { title, category, author, price } = req.body;
-  // GEt request for all books availabe in the library
-  try {
-    const result = await db.query(
-      `INSERT INTO books(title, category, author, price) VALUES ('${title}', '${category}', '${author}', '${price}')`
-    );
-    // books = result.rows;
-    console.log(result.rows);
-    res.status(201).send(result.rows);
-  } catch (err) {
-    console.log("Error PG: ", err);
-  }
-};
+import Book from "../models/Book.js";
+import User from "../models/user.js";
+import bcrypt from "bcrypt";
 
 export const getAllbooks = async (req, res) => {
   try {
-    const result = await db.query(
-      `SELECT * FROM books WHERE isrented = 'false'`
-    );
-    console.log(result.rows);
-    res.status(201).send(result.rows);
-  } catch (err) {
-    console.log("Error PG: ", err);
+    const books = await Book.find({});
+    res.status(200).json(books);
+  } catch (error) {
+    res.status(500).json({
+      message: "Unable to find the book, please re-enter the book title !",
+    });
   }
 };
 
-export const filterByCategory = async (req, res) => {
+export const getBook = async (req, res) => {
+  try {
+    const { title } = req.params;
+    const book = await Book.findByTitle(title);
+    res.status(200).json(book);
+  } catch (error) {
+    res.status(500).json({
+      message: "Wrong Book Title inserted, please reenter the Book Title! ",
+    });
+  }
+};
+
+export const getByCategory = async (req, res) => {
   try {
     const { category } = req.params;
     console.log(category);
-    const books = await db.query(
-      `SELECT * FROM books WHERE LOWER(category) LIKE '%${category}%'`
-    );
+    const books = await Book.findByCategory();
     if (books.rowCount === 0) {
       return res.status(301).send({
         message: "Nothing found",
@@ -47,46 +41,91 @@ export const filterByCategory = async (req, res) => {
   }
 };
 
+export const addBook = async (req, res) => {
+  try {
+    const book = await Book.create(req.body);
+    res.status(200).json(book);
+  } catch (error) {
+    res.status(500).json({
+      message: "Unable to add the book, Kindly re-enter the details !",
+    });
+  }
+};
+
+export const updateBook = async (req, res) => {
+  try {
+    const { title } = req.params;
+    const book = await Book.findByTitleAndUpdate(title, req.body);
+
+    if (!book) {
+      return res.status(404).json({ message: "Book not found" });
+    }
+    const updatedBook = await Book.findById(id);
+    res.status(200).json(updatedBook);
+  } catch (error) {
+    res.status(500).json({
+      message:
+        "Wrong Book Selected for updating, kindly re-enter the book title! ",
+    });
+  }
+};
+
+export const deleteBook = async (req, res) => {
+  try {
+    const { title } = req.params;
+    const book = await Book.findByIdAndDelete(title);
+    if (!book) {
+      return res.status(404).json({ message: "Book not found" });
+    }
+    res.status(200).json({ message: "Book Deleted Successfully! " });
+  } catch (error) {
+    res.status(500).json({
+      message:
+        "Wrong Title entered for deleting, kindly re-enter the Book Title! ",
+    });
+  }
+};
+
 export const createUser = async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
-    if (name === "" && email === "" && password === "") {
-      return res.status(404).json({
+    // Check if all fields are provided
+    if (!name || !email || !password) {
+      return res.status(400).json({
         message: "Please enter all fields!",
       });
     }
 
-    const checkEmail = await db.query(
-      `SELECT * FROM users WhERE email = '${email}'`
-    );
-    console.log(checkEmail.rows);
-    if (checkEmail.rowCount !== 0) {
+    // if Check for user email.
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
       return res.status(400).json({
-        message: "User already exist",
+        message: "User already exists",
       });
     }
-    const saltRounds = 10;
-    bcrypt.hash(password, saltRounds, async (err, hash) => {
-      if (err) {
-        console.log("Error hashing password:", err);
-      } else {
-        const result = await db.query(
-          `INSERT INTO users (name, email, password) VALUES('${name}','${email}','${hash}')`
-        );
 
-        result.rowCount !== 0
-          ? res.status(201).json({
-              message: "User created successfully",
-            })
-          : res.status(400).json({
-              message: "Internal error",
-            });
-      }
+    // Hash the password - Bcrypt method
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create a new user
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+    });
+
+    // Save the user to the database
+    await newUser.save();
+
+    res.status(201).json({
+      message: "User created successfully",
     });
   } catch (error) {
-    console.log(error);
-    res.status(400).send(error);
+    console.error("Error creating user:", error);
+    res.status(500).json({
+      message: "Internal server error",
+    });
   }
 };
 
@@ -99,7 +138,7 @@ export const login = async (req, res) => {
         message: "Please enter username and password",
       });
     }
-    const user = await db.query(`SELECT * FROM users WhERE email = '${email}'`);
+    const user = await User.findByEmail(email);
     if (user.rowCount === 0) {
       return res.status(404).json({
         message: "User not found with corresponding email",

@@ -1,7 +1,33 @@
-// import { DataTypes } from "sequelize";
+// Adding books to the data base
 
-// import sequelize from "../db/db.js";
+import mongoose from "mongoose";
 
-// const User = sequelize.createSchema()
+const BooksSchema = mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: [true, "Please enter the book title: "],
+    },
+    category: {
+      type: String,
+      required: true,
+      default: "Anonymous",
+    },
+    author: {
+      type: String,
+      required: true,
+      default: "Anonymous",
+    },
+    price: {
+      type: Number,
+      required: [true, "Please enter the books price: "],
+      default: 0,
+    },
+  },
+  {
+    timestamp: true,
+  }
+);
 
-// export default User;
+const Book = mongoose.model("Books", BooksSchema);
+export default Book;

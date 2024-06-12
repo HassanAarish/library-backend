@@ -1,31 +1,16 @@
 import express from "express";
-import pg from "pg";
-import bcrypt from "bcrypt";
-import db from "./db/db.js";
-import {
-  addBook,
-  createUser,
-  filterByCategory,
-  getAllbooks,
-  login,
-} from "./controller/controller.js";
+import connectDB from "./db/mongodb.js";
+import route from "./routes/routes.js";
+
 const app = express();
 const port = 5000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-await db.connect();
+app.use("/", route);
 
-app.post("/add-book", addBook);
-
-app.get("/", getAllbooks);
-
-app.get("/filter/:category", filterByCategory);
-
-app.post("/create-user", createUser);
-
-app.post("/login", login);
+connectDB();
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`The server is successfully running on port ${port}`);
 });
