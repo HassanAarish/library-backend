@@ -8,11 +8,13 @@ const BooksSchema = mongoose.Schema(
       type: String,
       required: [true, "Please enter the book title: "],
     },
-    category: {
-      type: String,
-      required: true,
-      default: "Anonymous",
-    },
+    category: [
+      {
+        type: String,
+        required: true,
+        default: "Anonymous",
+      },
+    ],
     author: {
       type: String,
       required: true,
@@ -23,9 +25,13 @@ const BooksSchema = mongoose.Schema(
       required: [true, "Please enter the books price: "],
       default: 0,
     },
+    isRented: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
-    timestamp: true,
+    timestamps: true,
   }
 );
 
