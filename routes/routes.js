@@ -14,8 +14,7 @@ import { createOrder, getUserOrders } from "../controller/OrderController.js";
 const route = express.Router();
 
 route.get("/all", getAllbooks);
-// route.get("/:title", getBook);
-route.get("/category", getByCategory);
+route.get("/:category", getByCategory);
 route.post("/add-new-book", addBook);
 route.put("/:id", updateBook);
 route.delete("/:id", deleteBook);

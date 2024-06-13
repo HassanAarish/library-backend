@@ -51,12 +51,3 @@ export const getUserOrders = async (req, res) => {
     res.status(404).json({ message: "No orders found", error: error });
   }
 };
-
-//     const orderId = await User.findById({});
-
-//   try {
-//     if (orderId === )
-//   } catch (error) {
-
-//   }
-// };

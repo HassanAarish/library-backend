@@ -15,24 +15,15 @@ export const getAllbooks = async (req, res) => {
   }
 };
 
-// export const getBook = async (req, res) => {
-//   try {
-//     const { title } = req.params;
-//     const book = await Book.findByTitle(title);
-//     res.status(200).json(book);
-//   } catch (error) {
-//     res.status(500).json({
-//       message: "Wrong Book Title inserted, please reenter the Book Title! ",
-//     });
-//   }
-// };
-
 export const getByCategory = async (req, res) => {
   try {
-    const { category } = req.params;
-    console.log(category);
-    const books = await Book.find({ category: category });
+    const category = req.params["category"];
+    console.log("Category: ", category);
+
+    const books = await Book.find({ category });
+    console.log("books: ", books);
     if (books.length === 0) {
+      console.log("No books found for your category: ", category);
       return res.status(301).send({
         message: "Nothing found",
       });
