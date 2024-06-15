@@ -1,15 +1,18 @@
 import express, { Router } from "express";
+import { getAllbooks, getByCategory } from "../controller/booksController.js";
 import {
-  getAllbooks,
-  getByCategory,
   addBook,
-  updateBook,
-  deleteBook,
   deleteAll,
-} from "../controller/BooksController.js";
-
-import { login, createUser } from "../controller/UserController.js";
-import { createOrder, getUserOrders } from "../controller/OrderController.js";
+  deleteBook,
+  updateBook,
+} from "../controller/adminController.js";
+import {
+  login,
+  createUser,
+  adminUser,
+  getUserProfile,
+} from "../controller/userController.js";
+import { createOrder, getUserOrders } from "../controller/orderController.js";
 
 const route = express.Router();
 
@@ -23,5 +26,7 @@ route.post("/delete-all", deleteAll);
 route.post("/signup", createUser);
 route.post("/login", login);
 route.get("/user-order", getUserOrders);
+route.post("/admin-signup", adminUser);
+route.get("/user-profile/:id", getUserProfile);
 
 export default route;
