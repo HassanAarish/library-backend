@@ -1,6 +1,8 @@
 import User from "../models/user.js";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/generateTokens.js";
+import jwt from "jsonwebtoken";
+import verifyUserToken from "../middlewares/verifyUserToken.js";
 
 export const createUser = async (req, res) => {
   const { name, email, password } = req.body;
@@ -137,15 +139,57 @@ export const adminUser = async (req, res) => {
   }
 };
 
-export const getUserProfile = async (req, res) => {
-  const user = await User.findById(req.userID)
-    .select("-password")
-    .populate("isAdmin")
-    .populate("order");
+export const getAllUserProfiles = async (req, res) => {
+  const user = await User.find({isAdmin: false})
   res.status(200).json({
     success: true,
-    data: user,
+    users: user,
   });
 };
 
-export const loggedInUser = async (req, res) => {};
+export const loggedInUser = async (req, res) => {
+  try {
+    //Extract the token from the request headers
+    const token = req.headers.authorization;
+
+    if (!token) {
+      return res.status(401).json({
+        message: 'Unauthorized: No token provided',
+      });
+    }
+
+    //Verify the token
+    jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+      if (err) {
+        return res.status(403).json({
+          message: 'Unauthorized: Invalid token',
+        });
+      }
+
+      //Token is valid, extract user ID from decoded token
+      const userId = decoded.id;
+
+      //Fetch user from database based on user ID
+      const user = await User.findById(userId).select('-password');
+
+      if (!user) {
+        return res.status(404).json({
+          message: 'User not found',
+        });
+      }
+
+      //User found, return user data along with a new token (optional)
+      // const newToken = generateToken(user); // Generate new token if needed
+      res.status(200).json({
+        message: 'User found',
+        user,
+        token,
+      });
+    });
+  } catch (error) {
+    console.error('Error fetching logged in user:', error);
+    res.status(500).json({
+      message: 'Internal server error',
+    });
+  }
+}

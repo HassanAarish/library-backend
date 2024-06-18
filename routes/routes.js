@@ -10,9 +10,11 @@ import {
   login,
   createUser,
   adminUser,
-  getUserProfile,
+  getAllUserProfiles,
+  loggedInUser,
 } from "../controller/userController.js";
 import { createOrder, getUserOrders } from "../controller/orderController.js";
+import verifyUserToken from "../middlewares/verifyUserToken.js";
 
 const route = express.Router();
 
@@ -26,7 +28,8 @@ route.post("/delete-all", deleteAll);
 route.post("/signup", createUser);
 route.post("/login", login);
 route.get("/user-order", getUserOrders);
-route.post("/admin-signup", adminUser);
-route.get("/user-profile/:id", getUserProfile);
+route.post("/admin-signup", verifyUserToken, adminUser);
+route.get("/user-profile/:id", verifyUserToken, getAllUserProfiles);
+route.get("/logged-in", verifyUserToken, loggedInUser)
 
 export default route;
