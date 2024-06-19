@@ -6,14 +6,27 @@ const orderSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  bookId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Books",
+  rentedBooks: [
+    {
+      bookId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Books",
+        required: true,
+      },
+      startDate: {
+        type: String,
+        required: true,
+      },
+      endDate: {
+        type: String,
+        required: true,
+      },
+    },
+  ],
+  totalPrice: {
+    type: Number,
     required: true,
   },
-  price: Number,
-  startDate: String,
-  endDate: String,
 });
 
 const order = mongoose.model("Order", orderSchema);

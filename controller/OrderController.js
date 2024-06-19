@@ -4,25 +4,28 @@ import Book from "../models/book.js";
 import order from "../models/order.js";
 
 export const createOrder = async (req, res) => {
-  const { userId, bookId, startDate, endDate, price } = req.body;
+  const { rentedBooks } = req.body;
 
-  const user = await User.findById(userId);
+  for (let i = 0; i < rentedBooks.length; i++) {
+    const book = await Book.findById(rentedBooks[i].bookId);
 
-  const book = await Book.findById(bookId);
-  console.log(book);
-
-  if (!user || !book || book.isRented === true) {
-    return res.status(404).json({
-      success: false,
-      message: "Sorry we cannot process your order.",
-    });
+    if (!book || book.isRented === false) {
+      // Ensure book is found before updating
+      book.isRented = true;
+      await book.save();
+    } else {
+      return res.status(400).json({ message: "Book is not available" });
+      // Handle the case where the book with the given id is not found
+      // Maybe throw an error or log the issue for further investigation
+    }
   }
   const newOrder = await order.create(req.body);
 
-  book.isRented = true;
-  await book.save();
+  const foundOrder = await order
+    .findById(newOrder._id)
+    .populate("rentedBooks.bookId");
   res.status(200).json({
-    newOrder,
+    foundOrder,
     success: true,
     message: "Your order have been placed successfully !",
   });
