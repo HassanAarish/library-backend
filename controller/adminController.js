@@ -67,12 +67,15 @@ export const deleteBook = async (req, res) => {
 
 export const deleteAll = async (req, res) => {
   try {
-    const allBooks = await Book.find({});
-    for (let i = 0; i < allBooks.length; i++) {
-      console.log(`Deleted id: ${allBooks[i]._id}`);
-      await Book.findByIdAndDelete(allBooks[i]._id);
+    const user = await User.findById(req.userID);
+    if (user.isAdmin === true) {
+      const allBooks = await Book.find({});
+      for (let i = 0; i < allBooks.length; i++) {
+        console.log(`Deleted id: ${allBooks[i]._id}`);
+        await Book.findByIdAndDelete(allBooks[i]._id);
+      }
+      res.status(200).json({ Success: true });
     }
-    res.status(200).json({ Success: true });
   } catch (error) {
     res.status(500).json({
       message: "Unable to delete the books !",
