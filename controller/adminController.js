@@ -1,15 +1,18 @@
 import Book from "../models/book.js";
 import User from "../models/user.js";
-import verifyUserToken from "../middlewares/verifyUserToken.js";
 
 export const addBook = async (req, res) => {
   const { title, category, author, price } = req.body;
   try {
-    const book = await Book.create(req.body);
-    res.status(200).json({
-      message: "Book added successfully !",
-      book,
-    });
+    const user = await User.findById(req.userID);
+    if (user.isAdmin === true) {
+      const book = await Book.create(req.body);
+      res.status(200).json({
+        message: "Book added successfully !",
+        book,
+      });
+    }
+    res.status(403).json({ message: "User not Authorized" });
   } catch (error) {
     res.status(500).json({
       message: "Unable to add the book, Kindly re-enter the details !",
@@ -18,15 +21,24 @@ export const addBook = async (req, res) => {
 };
 
 export const updateBook = async (req, res) => {
+  const { title, id } = req.query;
+  console.log(req.query);
   try {
-    const { title } = req.params;
-    const book = await Book.findByTitleAndUpdate(title, req.body);
+    const user = await User.findById(req.userID);
+    if (user.isAdmin === true) {
+      // console.log(req.params);
 
-    if (!book) {
-      return res.status(404).json({ message: "Book not found" });
+      if (req.params) {
+        const updatedBook = await Book.findByIdAndUpdate(req.params.id, {
+          title: req.query.title,
+        });
+        console.log(updatedBook);
+        res.status(200).json({ message: "Book updated successfully" });
+      } else {
+        res.status(400).json({ message: "Unable to update the book!" });
+      }
     }
-    const updatedBook = await Book.findById(id);
-    res.status(200).json(updatedBook);
+    res.status(400).json({ message: "User unauthorized to make changs!" });
   } catch (error) {
     res.status(500).json({
       message:
@@ -36,13 +48,15 @@ export const updateBook = async (req, res) => {
 };
 
 export const deleteBook = async (req, res) => {
+  const { title, id } = req.query;
   try {
-    const { title } = req.params;
-    const book = await Book.findByIdAndDelete(title);
-    if (!book) {
-      return res.status(404).json({ message: "Book not found" });
+    const user = await User.findById(req.userID);
+    if (user.isAdmin === true) {
+      const deletedBook = await Book.findByIdAndDelete(req.params.id);
+      console.log(deletedBook);
+      return res.status(200).json({ message: "Book deleted successfully" });
     }
-    res.status(200).json({ message: "Book Deleted Successfully! " });
+    res.status(400).json({ message: "User unauthorized to make changs!" });
   } catch (error) {
     res.status(500).json({
       message:
