@@ -10,12 +10,6 @@ export const createOrder = async (req, res) => {
 
   const book = await Book.findById(bookId);
   console.log(book);
-  //   if (!user && !book && book.isRented === true) {
-  //     return res.status(404).json({
-  //       success: false,
-  //       message: "Sorry we cannot process your order.",
-  //     });
-  //   }
 
   if (!user || !book || book.isRented === true) {
     return res.status(404).json({
