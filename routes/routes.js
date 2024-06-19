@@ -4,17 +4,12 @@ import {
   addBook,
   deleteAll,
   deleteBook,
+  getAllUserProfiles,
   updateBook,
 } from "../controller/adminController.js";
-import {
-  login,
-  createUser,
-  adminUser,
-  getAllUserProfiles,
-} from "../controller/UserController.js";
+import { login, createUser, adminUser } from "../controller/UserController.js";
 import { createOrder, getUserOrders } from "../controller/orderController.js";
 import verifyUserToken from "../middlewares/verifyUserToken.js";
-import verifyUserRole from "../middlewares/verifyUserRole.js";
 
 const route = express.Router();
 

@@ -136,11 +136,3 @@ export const adminUser = async (req, res) => {
     });
   }
 };
-
-export const getAllUserProfiles = async (req, res) => {
-  const user = await User.find({ isAdmin: false });
-  res.status(200).json({
-    success: true,
-    users: user,
-  });
-};

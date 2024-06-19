@@ -82,3 +82,16 @@ export const deleteAll = async (req, res) => {
     });
   }
 };
+
+export const getAllUserProfiles = async (req, res) => {
+  const user = await User.findById(req.userID);
+  if (user.isAdmin === true) {
+    const user = await User.find({ isAdmin: false });
+    res.status(200).json({
+      success: true,
+      users: user,
+    });
+  } else {
+    res.status(403).json({ message: "User unauthorized for this request!" });
+  }
+};
