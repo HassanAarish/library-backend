@@ -19,7 +19,8 @@ const verifyUserToken = async (req, res, next) => {
     jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
       if (err) {
         return res.status(401).json({
-          message: "User unauthorized: ",
+          message:
+            "User unauthorized: Please login or signup to place the order",
         });
       }
       req.userID = decoded.user.userID;
