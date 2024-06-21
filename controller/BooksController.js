@@ -33,3 +33,24 @@ export const getByCategory = async (req, res) => {
     console.log(error);
   }
 };
+
+export const getById = async (req, res) => {
+  try {
+    const bookId = req.params.id;
+    console.log("bookId: ", bookId);
+
+    const books = await Book.find({ bookId });
+    console.log("books: ", books);
+    if (books.length === 0) {
+      console.log(`No books found for your ID: ${bookId}`, bookId);
+      return res.status(301).send({
+        message: "Nothing found",
+      });
+    }
+    res
+      .status(200)
+      .json({ message: `Book found with the id: ${bookId}`, books });
+  } catch (error) {
+    console.log(error);
+  }
+};
