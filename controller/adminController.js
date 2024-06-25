@@ -7,7 +7,7 @@ export const addBook = async (req, res) => {
     const user = await User.findById(req.userID);
     if (user.isAdmin === true) {
       const book = await Book.create(req.body);
-      res.status(200).json({
+      return res.status(200).json({
         message: "Book added successfully !",
         book,
       });
