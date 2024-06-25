@@ -123,22 +123,17 @@ const books = [
 ];
 
 const searchBook = (search) => {
-  console.log(search);
-  const foundBook = books.filter((book) => {
-    if (
-      book.title === search ||
-      book.category === search ||
-      book.author === search
-    ) {
-      console.log(foundBook);
-    }
-  });
+  const searchLower = search.toLowerCase(); // Convert search term to lowercase once for efficiency
+  const filtered = books.filter(
+    (book) =>
+      book.title.toLowerCase().includes(searchLower) ||
+      book.author.toLowerCase().includes(searchLower) ||
+      book.category.some((category) =>
+        category.toLowerCase().includes(searchLower)
+      )
+  );
+  return filtered; // Return the filtered list of books
 };
-searchBook("Romance");
-console.log(searchBook);
 
-// if (foundBook.length > 0) {
-//     return foundBook;
-//   } else {
-//     return res.status(400).jsno({ message: "Nothing found" });
-//   }
+const results = searchBook("Charlotte von Stein");
+console.log(results); // This will now show the filtered results for books by title, author, or category matching "Romance"
