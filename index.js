@@ -17,10 +17,10 @@ const options = {
   definition: {
     openapi: "3.1.0",
     info: {
-      title: "LogRocket Express API with Swagger",
+      title: "My First API",
       version: "0.1.0",
       description:
-        "This is a simple CRUD API application made with Express and documented with Swagger",
+        "Login and enjoy or get the code from https://github.com/HassanAarish/library-backend",
       license: {
         name: "MIT",
         url: "https://spdx.org/licenses/MIT.html",
@@ -36,6 +36,7 @@ const options = {
         url: "http://localhost:5000/myapi",
       },
     ],
+    security: [{ bearerAuth: [] }],
   },
   apis: ["./routes/routes.js"], // Path to your book.js route file
 };
@@ -47,8 +48,14 @@ const specs = swaggerJsdoc(options);
 app.use(
   "/api-docs",
   swaggerUi.serve,
-  swaggerUi.setup(specs, { explorer: true })
-);
+  swaggerUi.setup(specs, { 
+    explorer: true,
+    swaggerOptions: {
+      defaultModelsExpandDepth: -1,
+      displayRequestDuration: true,
+      docExpansion: 'list', // Controls the default expansion setting for operations and tags.
+      defaultModelRendering: 'model' }
+}));
 
 app.listen(port, () => {
   console.log(`The server is successfully running on port ${port}`);

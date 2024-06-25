@@ -1,5 +1,48 @@
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     Book:
+ *       type: object
+ *       required:
+ *       security:
+ *         - bearerAuth: []
+ *         - title
+ *         - category
+ *         - author
+ *         - price
+ *         - isRented
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: The auto-generated id of the book
+ *         title:
+ *           type: string
+ *           description: The title of your book
+ *         category:
+ *           type: string
+ *           description: The title of your book default is Anonymous
+ *         author:
+ *           type: string
+ *           description: The book author default is Anonymous
+ *         price:
+ *           type: number
+ *           description: The price of the book default is zero
+ *         isRented:
+ *           type: boolean
+ *           description: Whether the book is rented or not default is false
+ *
+ *       example:
+ *         id: d5fE_asz
+ *         title: The New Turing Omnibus
+ *         category: Anonymous
+ *         author: Anonymous
+ *         price: 10
+ *         isRented: false
+ */
+
+/**
+ * @swagger
  * tags:
  *   name: Books
  *   description: API endpoints for managing books
