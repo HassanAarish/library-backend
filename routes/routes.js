@@ -324,9 +324,9 @@ import {
   getAllbooks,
   getByCategory,
   getById,
-} from "../controller/booksController.js";
+} from "../controller/BooksController.js";
 import { login, createUser } from "../controller/UserController.js";
-import { createOrder, getUserOrders } from "../controller/orderController.js";
+import { createOrder, getUserOrders } from "../controller/OrderController.js";
 
 const route = express.Router();
 
