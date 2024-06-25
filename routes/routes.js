@@ -46,7 +46,7 @@
  * tags:
  *   name: Books
  *   description: API endpoints for managing books
- * 
+ *
  * /all:
  *   get:
  *     summary: Lists all the books
@@ -62,7 +62,7 @@
  *                 $ref: '#/components/schemas/Book'
  *       500:
  *         description: Server error
- * 
+ *
  * /genre/{category}:
  *   get:
  *     summary: Get books by category
@@ -87,7 +87,7 @@
  *         description: No books found in the specified category
  *       500:
  *         description: Server error
- * 
+ *
  * /user-order:
  *   get:
  *     summary: Get user orders
@@ -107,7 +107,7 @@
  *         description: Unauthorized, user not authenticated
  *       500:
  *         description: Server error
- * 
+ *
  * /user-profile:
  *   get:
  *     summary: Get all user profiles (admin only)
@@ -127,7 +127,7 @@
  *         description: Unauthorized, user not authenticated or not an admin
  *       500:
  *         description: Server error
- * 
+ *
  * /add-new-book:
  *   post:
  *     summary: Create a new book
@@ -151,7 +151,7 @@
  *         description: Unauthorized, user not authenticated
  *       500:
  *         description: Server error
- * 
+ *
  * /new-order:
  *   post:
  *     summary: Create a new order
@@ -175,7 +175,7 @@
  *         description: Unauthorized, user not authenticated
  *       500:
  *         description: Server error
- * 
+ *
  * /delete-all:
  *   post:
  *     summary: Delete all books in the database
@@ -189,7 +189,7 @@
  *         description: Unauthorized, user not authenticated
  *       500:
  *         description: Server error
- * 
+ *
  * /signup:
  *   post:
  *     summary: User signup
@@ -205,7 +205,7 @@
  *         description: User signed up successfully
  *       500:
  *         description: Server error
- * 
+ *
  * /login:
  *   post:
  *     summary: User login
@@ -228,7 +228,7 @@
  *         description: Unauthorized, invalid credentials
  *       500:
  *         description: Server error
- * 
+ *
  * /admin-signup:
  *   post:
  *     summary: Admin signup
@@ -248,7 +248,7 @@
  *         description: Unauthorized, user not authenticated or not an admin
  *       500:
  *         description: Server error
- * 
+ *
  * /{id}:
  *   get:
  *     summary: Get a book by ID
@@ -271,7 +271,7 @@
  *         description: Book not found
  *       500:
  *         description: Server error
- * 
+ *
  *   put:
  *     summary: Update a book by ID
  *     tags: [Books]
@@ -299,7 +299,7 @@
  *         description: Book not found
  *       500:
  *         description: Server error
- * 
+ *
  *   delete:
  *     summary: Delete a book by ID
  *     tags: [Books]
@@ -319,38 +319,22 @@
  *         description: Server error
  */
 
-
-
 import express, { Router } from "express";
 import {
   getAllbooks,
   getByCategory,
   getById,
 } from "../controller/booksController.js";
-import {
-  addBook,
-  deleteAll,
-  deleteBook,
-  getAllUserProfiles,
-  updateBook,
-} from "../controller/adminController.js";
-import { login, createUser, adminUser } from "../controller/UserController.js";
+import { login, createUser } from "../controller/UserController.js";
 import { createOrder, getUserOrders } from "../controller/orderController.js";
-import verifyUserToken from "../middlewares/verifyUserToken.js";
 
 const route = express.Router();
 
 route.get("/all", getAllbooks);
 route.get("/genre/:category", getByCategory);
 route.get("/user-order", getUserOrders);
-route.get("/user-profile", verifyUserToken, getAllUserProfiles);
-route.post("/add-new-book", verifyUserToken, addBook);
 route.post("/new-order", createOrder);
-route.post("/delete-all", deleteAll);
 route.post("/signup", createUser);
 route.post("/login", login);
-route.post("/admin-signup", verifyUserToken, adminUser);
-route.put("/:id", verifyUserToken, updateBook);
 route.get("/:id", getById);
-route.delete("/:id", verifyUserToken, deleteBook);
 export default route;
