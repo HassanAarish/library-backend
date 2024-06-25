@@ -6,7 +6,7 @@
  *       type: object
  *       required:
  *       security:
- *         - bearerAuth: []
+ *         - Authorization: []
  *         - title
  *         - category
  *         - author
@@ -63,6 +63,31 @@
  *       500:
  *         description: Server error
  *
+ * /search:
+ *   get:
+ *     summary: Search any keyword
+ *     tags: [Books]
+ *     parameters:
+ *       - in: path
+ *         name: category
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The category of books to retrieve
+ *     responses:
+ *       200:
+ *         description: Here are your result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Book'
+ *       404:
+ *         description: No results found
+ *       500:
+ *         description: Server error
+ *
  * /genre/{category}:
  *   get:
  *     summary: Get books by category
@@ -93,7 +118,7 @@
  *     summary: Get user orders
  *     tags: [Books]
  *     security:
- *       - bearerAuth: []
+ *       - Authorization: []
  *     responses:
  *       200:
  *         description: A list of orders belonging to the current user
@@ -107,57 +132,12 @@
  *         description: Unauthorized, user not authenticated
  *       500:
  *         description: Server error
- *
- * /user-profile:
- *   get:
- *     summary: Get all user profiles (admin only)
- *     tags: [Books]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: A list of user profiles
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/UserProfile'
- *       401:
- *         description: Unauthorized, user not authenticated or not an admin
- *       500:
- *         description: Server error
- *
- * /add-new-book:
- *   post:
- *     summary: Create a new book
- *     tags: [Books]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Book'
- *     responses:
- *       200:
- *         description: The created book
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Book'
- *       401:
- *         description: Unauthorized, user not authenticated
- *       500:
- *         description: Server error
- *
  * /new-order:
  *   post:
  *     summary: Create a new order
  *     tags: [Books]
  *     security:
- *       - bearerAuth: []
+ *       - Authorization: []
  *     requestBody:
  *       required: true
  *       content:
@@ -171,20 +151,6 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Order'
- *       401:
- *         description: Unauthorized, user not authenticated
- *       500:
- *         description: Server error
- *
- * /delete-all:
- *   post:
- *     summary: Delete all books in the database
- *     tags: [Books]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: All books deleted successfully
  *       401:
  *         description: Unauthorized, user not authenticated
  *       500:
@@ -234,7 +200,7 @@
  *     summary: Admin signup
  *     tags: [Books]
  *     security:
- *       - bearerAuth: []
+ *       - Authorization: []
  *     requestBody:
  *       required: true
  *       content:
@@ -271,52 +237,6 @@
  *         description: Book not found
  *       500:
  *         description: Server error
- *
- *   put:
- *     summary: Update a book by ID
- *     tags: [Books]
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: The ID of the book to update
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Book'
- *     responses:
- *       200:
- *         description: The book updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Book'
- *       404:
- *         description: Book not found
- *       500:
- *         description: Server error
- *
- *   delete:
- *     summary: Delete a book by ID
- *     tags: [Books]
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: The ID of the book to delete
- *     responses:
- *       200:
- *         description: Book deleted successfully
- *       404:
- *         description: Book not found
- *       500:
- *         description: Server error
  */
 
 import express, { Router } from "express";
@@ -324,6 +244,7 @@ import {
   getAllbooks,
   getByCategory,
   getById,
+  searchBook,
 } from "../controller/BooksController.js";
 import { login, createUser } from "../controller/UserController.js";
 import { createOrder, getUserOrders } from "../controller/OrderController.js";
@@ -331,6 +252,7 @@ import { createOrder, getUserOrders } from "../controller/OrderController.js";
 const route = express.Router();
 
 route.get("/all", getAllbooks);
+route.get("/search", searchBook);
 route.get("/genre/:category", getByCategory);
 route.get("/user-order", getUserOrders);
 route.post("/new-order", createOrder);

@@ -54,3 +54,26 @@ export const getById = async (req, res) => {
     console.log(error);
   }
 };
+
+export const searchBook = async (req, res) => {
+  const { input } = req.body;
+  const searchLower = input.toLowerCase();
+  try {
+    const books = await Book.find({});
+
+    const filtered = books.filter(
+      (book) =>
+        book.title.toLowerCase().includes(searchLower) ||
+        book.author.toLowerCase().includes(searchLower) ||
+        book.category.some((category) =>
+          category.toLowerCase().includes(searchLower)
+        )
+    );
+    res.status(200).json({
+      books: filtered,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(404);
+  }
+};

@@ -135,5 +135,5 @@ const searchBook = (search) => {
   return filtered; // Return the filtered list of books
 };
 
-const results = searchBook("Charlotte von Stein");
+const results = searchBook("romance");
 console.log(results); // This will now show the filtered results for books by title, author, or category matching "Romance"
