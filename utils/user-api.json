@@ -19,7 +19,7 @@
   },
   "servers": [
     {
-      "url": "https://localhost:5000/library"
+      "url": "http://localhost:5000/library"
     }
   ],
   "components": {
@@ -180,7 +180,7 @@
   },
   "tags": [
     {
-      "name": "Books",
+      "name": "User management system",
       "description": "API endpoints for managing books"
     }
   ],
@@ -188,7 +188,7 @@
     "/all": {
       "get": {
         "summary": "Lists all the books",
-        "tags": ["Books"],
+        "tags": ["All available Books"],
         "responses": {
           "200": {
             "description": "The list of all books",
@@ -212,7 +212,7 @@
     "/search": {
       "get": {
         "summary": "Search any keyword",
-        "tags": ["Books"],
+        "tags": ["Search your own book !"],
         "parameters": [
           {
             "in": "query",
@@ -250,7 +250,7 @@
     "/genre/{category}": {
       "get": {
         "summary": "Get books by category",
-        "tags": ["Books"],
+        "tags": ["You can search any book by it's Genre!"],
         "parameters": [
           {
             "in": "path",
@@ -288,7 +288,7 @@
     "/user-order": {
       "get": {
         "summary": "Get user orders",
-        "tags": ["Books"],
+        "tags": ["Here you can find all of your orders!"],
         "security": [
           {
             "Authorization": []
@@ -320,7 +320,7 @@
     "/new-order": {
       "post": {
         "summary": "Create a new order",
-        "tags": ["Books"],
+        "tags": ["You can ordr any book from here !"],
         "security": [
           {
             "Authorization": []
@@ -359,7 +359,7 @@
     "/signup": {
       "post": {
         "summary": "User signup",
-        "tags": ["Books"],
+        "tags": ["You can sign up from here !"],
         "requestBody": {
           "required": true,
           "content": {
@@ -383,7 +383,7 @@
     "/login": {
       "post": {
         "summary": "User login",
-        "tags": ["Books"],
+        "tags": ["User log in portal"],
         "requestBody": {
           "required": true,
           "content": {
@@ -418,7 +418,7 @@
     "/admin-signup": {
       "post": {
         "summary": "Admin signup",
-        "tags": ["Books"],
+        "tags": ["Amin Portal"],
         "security": [
           {
             "Authorization": []
@@ -450,7 +450,7 @@
     "/{id}": {
       "get": {
         "summary": "Get a book by ID",
-        "tags": ["Books"],
+        "tags": ["Search any book by it's ID !"],
         "parameters": [
           {
             "in": "path",
