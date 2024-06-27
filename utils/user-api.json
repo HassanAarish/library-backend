@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Book store - OpenAPI 3.0",
-    "description": "You can find out more about\nSwagger at [https://swagger.io](https://swagger.io).",
+    "description": "This is a sample Book Store Server based on the OpenAPI 3.0 specification.  You can find out more about\nSwagger at [https://swagger.io](https://swagger.io).",
     "termsOfService": "http://swagger.io/terms/",
     "contact": {
       "email": "apiteam@swagger.io"
