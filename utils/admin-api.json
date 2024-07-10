@@ -19,7 +19,7 @@
   },
   "servers": [
     {
-      "url": "https://localhost:5000/admin"
+      "url": "http://localhost:5000/admin"
     }
   ],
   "components": {
@@ -179,7 +179,7 @@
   },
   "tags": [
     {
-      "name": "Admin book route",
+      "name": "Admin mangement system",
       "description": "API endpoints for managing books via admin(CRUD operations)"
     }
   ],
@@ -187,7 +187,7 @@
     "/add-new-book": {
       "post": {
         "summary": "Create a new book",
-        "tags": ["Books"],
+        "tags": ["Admin's can add any book in the DataBase from here !"],
         "security": [
           {
             "Authorization": []
@@ -226,7 +226,9 @@
     "/all-users": {
       "get": {
         "summary": "Get all user profiles (admin only)",
-        "tags": ["Books"],
+        "tags": [
+          "Admin's can look all of the registered users on your website !"
+        ],
         "security": [
           {
             "Authorization": []
@@ -258,7 +260,7 @@
     "/delete-all": {
       "post": {
         "summary": "Delete all books in the database",
-        "tags": ["Books"],
+        "tags": ["Admin's can delete all book's from the DabaBase !"],
         "security": [
           {
             "Authorization": []
@@ -280,7 +282,7 @@
     "/admin-signup": {
       "post": {
         "summary": "Admin signup",
-        "tags": ["Books"],
+        "tags": ["Portal for registering new admin !"],
         "security": [
           {
             "Authorization": []
@@ -312,7 +314,7 @@
     "/{id}": {
       "put": {
         "summary": "Update a book by ID",
-        "tags": ["Books"],
+        "tags": ["Admin's can update any book !"],
         "security": [
           {
             "Authorization": []
@@ -360,7 +362,7 @@
       },
       "delete": {
         "summary": "Delete a book by ID",
-        "tags": ["Books"],
+        "tags": ["Admin's can delete a specific book from thr DataBase !"],
         "security": [
           {
             "Authorization": []
