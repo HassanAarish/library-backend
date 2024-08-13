@@ -1,5 +1,3 @@
-// Adding books to the data base
-
 import mongoose from "mongoose";
 
 const BooksSchema = mongoose.Schema(
@@ -35,5 +33,6 @@ const BooksSchema = mongoose.Schema(
   }
 );
 
-const Book = mongoose.models.Books || mongoose.model("Books", BooksSchema);
-export default Book;
+const Books = mongoose.model("Books", BooksSchema);
+
+export default Books;

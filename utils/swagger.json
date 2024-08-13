@@ -1,32 +1,173 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Book store - OpenAPI 3.0",
-    "description": "This is a sample Book Store Server based on the OpenAPI 3.0 specification.  You can find out more about\nSwagger at [https://swagger.io](https://swagger.io).",
-    "termsOfService": "http://swagger.io/terms/",
+    "title": "Book-store UI",
+    "description": "These are all checked and workin API's for the project.",
+    "serviceProvidedBy": "https://apexwebstudios.net/",
     "contact": {
-      "email": "apiteam@swagger.io"
-    },
-    "license": {
-      "name": "Apache 2.0",
-      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+      "email": "Horror_98@icloud.com"
     },
     "version": "1.0.11"
   },
-  "externalDocs": {
-    "description": "Find out more about Swagger",
-    "url": "http://swagger.io"
-  },
   "servers": [
     {
-      "url": "http://localhost:5000/library"
+      "url": "http://localhost:5001"
     }
   ],
   "components": {
     "securitySchemes": {
       "Authorization": {
         "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "schemas": {
+        "Book": {
+          "type": "object",
+          "required": [
+            "Authorization[]",
+            "id",
+            "title",
+            "category",
+            "author",
+            "price",
+            "isRented"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The auto-generated id of the book"
+            },
+            "title": {
+              "type": "string",
+              "description": "The title of your book"
+            },
+            "category": {
+              "type": "string",
+              "description": "The category of your book"
+            },
+            "author": {
+              "type": "string",
+              "description": "The author of the book"
+            },
+            "price": {
+              "type": "number",
+              "description": "The price of the book"
+            },
+            "isRented": {
+              "type": "boolean",
+              "description": "Whether the book is rented or not"
+            }
+          },
+          "example": {
+            "id": "d5fE_asz",
+            "title": "The New Turing Omnibus",
+            "category": "Anonymous",
+            "author": "Anonymous",
+            "price": 10,
+            "isRented": false
+          }
+        },
+        "Order": {
+          "type": "object",
+          "properties": {
+            "orderId": {
+              "type": "string",
+              "description": "The unique identifier for the order"
+            },
+            "userId": {
+              "type": "string",
+              "description": "The ID of the user who placed the order"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "itemId": {
+                    "type": "string",
+                    "description": "The ID of the item"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "description": "The quantity of the item ordered"
+                  }
+                }
+              },
+              "description": "The list of items in the order"
+            },
+            "totalAmount": {
+              "type": "number",
+              "description": "The total amount of the order"
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "date-time",
+              "description": "The date and time when the order was created"
+            }
+          },
+          "example": {
+            "orderId": "abc123",
+            "userId": "user123",
+            "items": [
+              {
+                "itemId": "item1",
+                "quantity": 2
+              },
+              {
+                "itemId": "item2",
+                "quantity": 1
+              }
+            ],
+            "totalAmount": 25.5,
+            "createdAt": "2024-06-27T12:00:00Z"
+          }
+        },
+        "User": {
+          "type": "object",
+          "properties": {
+            "username": {
+              "type": "string",
+              "description": "The username of the user"
+            },
+            "password": {
+              "type": "string",
+              "description": "The password of the user"
+            },
+            "email": {
+              "type": "string",
+              "format": "email",
+              "description": "The email address of the user"
+            }
+          },
+          "example": {
+            "username": "john_doe",
+            "password": "password123",
+            "email": "john.doe@example.com"
+          }
+        },
+        "AdminUser": {
+          "type": "object",
+          "properties": {
+            "username": {
+              "type": "string",
+              "description": "The username of the admin user"
+            },
+            "password": {
+              "type": "string",
+              "description": "The password of the admin user"
+            },
+            "role": {
+              "type": "string",
+              "description": "The role of the admin user"
+            }
+          },
+          "example": {
+            "username": "admin",
+            "password": "admin123",
+            "role": "superuser"
+          }
+        }
       }
     },
     "schemas": {
@@ -34,7 +175,6 @@
         "type": "object",
         "required": [
           "Authorization[]",
-          "id",
           "title",
           "category",
           "author",
@@ -52,19 +192,19 @@
           },
           "category": {
             "type": "string",
-            "description": "The category of your book"
+            "description": "The title of your book default is Anonymous"
           },
           "author": {
             "type": "string",
-            "description": "The author of the book"
+            "description": "The book author default is Anonymous"
           },
           "price": {
             "type": "number",
-            "description": "The price of the book"
+            "description": "The price of the book default is zero"
           },
           "isRented": {
             "type": "boolean",
-            "description": "Whether the book is rented or not"
+            "description": "Whether the book is rented or not default is false"
           }
         },
         "example": {
@@ -180,15 +320,15 @@
   },
   "tags": [
     {
-      "name": "User management system",
+      "name": "Library-Book-Store Management System",
       "description": "API endpoints for managing books"
     }
   ],
   "paths": {
-    "/all": {
+    "/user/all": {
       "get": {
         "summary": "Lists all the books",
-        "tags": ["All available Books"],
+        "tags": ["User Management System"],
         "responses": {
           "200": {
             "description": "The list of all books",
@@ -209,10 +349,10 @@
         }
       }
     },
-    "/search": {
+    "/user/search": {
       "get": {
         "summary": "Search any keyword",
-        "tags": ["Search your own book !"],
+        "tags": ["User Management System"],
         "parameters": [
           {
             "in": "query",
@@ -247,10 +387,10 @@
         }
       }
     },
-    "/genre/{category}": {
+    "/user/genre/{category}": {
       "get": {
         "summary": "Get books by category",
-        "tags": ["You can search any book by it's Genre!"],
+        "tags": ["User Management System"],
         "parameters": [
           {
             "in": "path",
@@ -285,10 +425,10 @@
         }
       }
     },
-    "/user-order": {
+    "/user/user-order": {
       "get": {
         "summary": "Get user orders",
-        "tags": ["Here you can find all of your orders!"],
+        "tags": ["User Management System"],
         "security": [
           {
             "Authorization": []
@@ -317,10 +457,10 @@
         }
       }
     },
-    "/new-order": {
+    "/user/new-order": {
       "post": {
         "summary": "Create a new order",
-        "tags": ["You can ordr any book from here !"],
+        "tags": ["User Management System"],
         "security": [
           {
             "Authorization": []
@@ -356,10 +496,10 @@
         }
       }
     },
-    "/signup": {
+    "/user/signup": {
       "post": {
         "summary": "User signup",
-        "tags": ["You can sign up from here !"],
+        "tags": ["User Management System"],
         "requestBody": {
           "required": true,
           "content": {
@@ -380,10 +520,10 @@
         }
       }
     },
-    "/login": {
+    "/user/login": {
       "post": {
         "summary": "User login",
-        "tags": ["User log in portal"],
+        "tags": ["User Management System"],
         "requestBody": {
           "required": true,
           "content": {
@@ -415,42 +555,10 @@
         }
       }
     },
-    "/admin-signup": {
-      "post": {
-        "summary": "Admin signup",
-        "tags": ["Amin Portal"],
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminUser"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Admin user signed up successfully"
-          },
-          "401": {
-            "description": "Unauthorized, user not authenticated or not an admin"
-          },
-          "500": {
-            "description": "Server error"
-          }
-        }
-      }
-    },
-    "/{id}": {
+    "/user/{id}": {
       "get": {
         "summary": "Get a book by ID",
-        "tags": ["Search any book by it's ID !"],
+        "tags": ["User Management System"],
         "parameters": [
           {
             "in": "path",
@@ -472,6 +580,212 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Book not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/add-new-book": {
+      "post": {
+        "summary": "Create a new book",
+        "tags": ["Admin Management System"],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Book"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The created book",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Book"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, user not authenticated"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/all-users": {
+      "get": {
+        "summary": "Get all user profiles (admin only)",
+        "tags": ["Admin Management System"],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of user profiles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Book"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, user not authenticated or not an admin"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/delete-all": {
+      "post": {
+        "summary": "Delete all books in the database",
+        "tags": ["Admin Management System"],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All books deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized, user not authenticated"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/admin-signup": {
+      "post": {
+        "summary": "Admin signup",
+        "tags": ["Admin Management System"],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Book"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Admin user signed up successfully"
+          },
+          "401": {
+            "description": "Unauthorized, user not authenticated or not an admin"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/admin/{id}": {
+      "put": {
+        "summary": "Update a book by ID",
+        "tags": ["Admin Management System"],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The ID of the book to update"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Book"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The book updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Book"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Book not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a book by ID",
+        "tags": ["Admin's can delete a specific book from thr DataBase !"],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "The ID of the book to delete"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Book deleted successfully"
           },
           "404": {
             "description": "Book not found"

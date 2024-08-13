@@ -1,24 +1,22 @@
-import User from "../models/user.js";
 import bcrypt from "bcrypt";
+import asyncHandler from "../middlewares/asyncHandler.js";
+import ErrorResponse from "../utils/errorResponse.js";
+import User from "../models/User.Model.js";
 import { generateToken } from "../utils/generateTokens.js";
 
-export const createUser = async (req, res) => {
+export const createUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
     // Check if all fields are provided
     if (!name || !email || !password) {
-      return res.status(400).json({
-        message: "Please enter all fields!",
-      });
+      return next(new ErrorResponse("Please enter all fields!", 400));
     }
 
     // if Check for user email.
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({
-        message: "User already exists",
-      });
+      return next(new ErrorResponse("User already exists", 400));
     }
 
     // Hash the password - Bcrypt method
@@ -37,45 +35,36 @@ export const createUser = async (req, res) => {
     await newUser.save();
     const token = generateToken(newUser);
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "User created successfully",
       token,
     });
   } catch (error) {
-    console.error("Error creating user:", error);
-    res.status(500).json({
-      message: "Internal server error",
-    });
+    return next(error);
   }
-};
+});
 
-export const login = async (req, res) => {
+export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   try {
     if (email === "" || password === "") {
-      return res.status(400).json({
-        message: "Please enter username and password",
-      });
+      return next(new ErrorResponse("Please enter all fields!", 400));
     }
     const user = await User.findOne({
       email: email,
     });
     if (!user) {
-      return res.status(404).json({
-        message: "User not found with corresponding email",
-      });
+      return next(
+        new ErrorResponse("User not found with the coresponding email", 404)
+      );
     }
-    // const checkPassword = user.rows[0].password === password;
     bcrypt.compare(password, user.password, function (err, result) {
-      console.log("result ", result);
       if (result !== true) {
-        return res.status(403).json({
-          message: "Incorrect password",
-        });
+        return next(new ErrorResponse("Incorrect password", 403));
       } else {
         const token = generateToken(user);
-        res.status(200).json({
+        return res.status(200).json({
           message: "Login successful",
           data: user,
           token,
@@ -83,30 +72,23 @@ export const login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error(error);
-    res.status(403).json({
-      error: error,
-    });
+    return next(error);
   }
-};
+});
 
-export const adminUser = async (req, res) => {
+export const adminUser = asyncHandler(async (req, res) => {
   const { name, email, password, isAdmin, userRole } = req.body;
 
   try {
     // Check if all fields are provided
     if (!name || !email || !password) {
-      return res.status(400).json({
-        message: "Please enter all fields!",
-      });
+      return next(new ErrorResponse("Please enter all fields!", 400));
     }
 
     // if Check for user email.
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({
-        message: "Admin already exists",
-      });
+      return next(new ErrorResponse("Admin already exist", 400));
     }
 
     // Hash the password - Bcrypt method
@@ -128,11 +110,9 @@ export const adminUser = async (req, res) => {
     res.status(201).json({
       message: "New Admin registered successfully",
       token,
+      data: newAdmin,
     });
   } catch (error) {
-    console.error("Error creating new Admin:", error);
-    res.status(500).json({
-      message: "Internal server error",
-    });
+    return next(error);
   }
-};
+});

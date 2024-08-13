@@ -1,17 +1,15 @@
+import ErrorResponse from "../utils/errorResponse.js";
+
 const verifyUserRole = (...roles) => {
-  return (req, res) => {
+  return (req, res, next) => {
     if (!req?.userRole) {
-      res.status(404).json({
-        message: "Unable to verify admin: ",
-      });
+      return next(new ErrorResponse("User role not found", 404));
     }
     const allowedRoles = ["admin", "user"];
     const isAllowed = roles.some((role) => allowedRoles.includes(role));
 
     if (!isAllowed) {
-      res.status(404).json({
-        message: "Unable to verify admin: ",
-      });
+      return next(new ErrorResponse("Permission Denied", 404));
     }
     next();
   };
