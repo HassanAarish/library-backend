@@ -1,21 +1,25 @@
 import express from "express";
+import verifyUserToken from "../middlewares/verifyUserToken.js";
 import {
-  getAllbooks,
-  getByCategory,
-  getById,
-  searchBook,
-} from "../controller/BooksController.js";
-import { login, createUser } from "../controller/UserController.js";
-import { createOrder, getUserOrders } from "../controller/OrderController.js";
+  addProfilePicture,
+  forgotPassword,
+  getUserOrders,
+  getUserProfile,
+  resetPassword,
+  updatePassword,
+  updateProfilePicture,
+  updateUserProfile,
+} from "../controller/UserController.js";
 
 const router = express.Router();
 
-router.get("/all", getAllbooks);
-router.get("/search", searchBook);
-router.get("/genre/:category", getByCategory);
-router.get("/user-order", getUserOrders);
-router.post("/new-order", createOrder);
-router.post("/signup", createUser);
-router.post("/login", login);
-router.get("/:id", getById);
+router.get("/orders", verifyUserToken, getUserOrders);
+router.get("/profile", verifyUserToken, getUserProfile);
+router.put("/update-profile", verifyUserToken, updateUserProfile);
+router.post("/forgot-password", verifyUserToken, forgotPassword);
+router.post("/reset-password", verifyUserToken, resetPassword);
+router.put("/update-password", verifyUserToken, updatePassword);
+router.post("/add-avatar", verifyUserToken, addProfilePicture);
+router.put("/update-avatar", verifyUserToken, updateProfilePicture);
+
 export default router;

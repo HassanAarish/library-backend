@@ -16,13 +16,14 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const connectionUrl = process.env.MONGO_URI;
-console.log(connectionUrl);
+
+let connection; // Declare a global variable to hold the connection
 
 const connectDB = async () => {
   try {
     mongoose.set("strictQuery", false);
-    await mongoose.connect(connectionUrl);
-    console.log("MongoDB connection SUCCESSFULL");
+    connection = await mongoose.connect(connectionUrl);
+    console.log("MongoDB connection SUCCESS");
   } catch (error) {
     console.error("MongoDB connection FAIL");
     console.error(error);
@@ -30,4 +31,4 @@ const connectDB = async () => {
   }
 };
 
-export default connectDB;
+export { connectDB, connection };

@@ -4,7 +4,7 @@ import cors from "cors";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import path from "path";
-import connectDB from "./config/db.js";
+import { connectDB } from "./config/db.js";
 import swaggerUi from "swagger-ui-express";
 import { readFileSync } from "fs";
 import router from "./routes/indexRoutes.js";

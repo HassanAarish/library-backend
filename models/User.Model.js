@@ -12,7 +12,7 @@ const UserSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: true,
+      required: [true, "email is required"],
       unique: true,
     },
     phoneNumber: {
@@ -21,21 +21,54 @@ const UserSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      required: [true, "Password is required"],
+      minlength: [6, "Password must be at least 6 characters"],
     },
     dob: {
       type: Date,
       required: [true, "Date of Birth is required"],
     },
+    gender: {
+      type: String,
+      required: [true, "Gender is required"],
+      enum: ["Male", "Female", "Other"],
+    },
+    authType: {
+      type: String,
+      enum: ["email", "google", "apple"],
+      default: "email",
+    },
     isAdmin: {
       type: Boolean,
       default: false,
     },
-    passwordResetToken: {
-      type: String,
+    profilePicture: {
+      url: {
+        type: String,
+      },
+      public_id: {
+        type: String,
+      },
     },
-    passwordResetTokenExpiry: {
-      type: Date,
+    otp: {
+      code: {
+        type: String,
+      },
+      expiry: {
+        type: Date,
+      },
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    passwordResetOtp: {
+      code: {
+        type: String,
+      },
+      expiry: {
+        type: Date,
+      },
     },
   },
   {
