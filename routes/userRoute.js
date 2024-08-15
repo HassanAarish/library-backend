@@ -1,4 +1,4 @@
-import express, { Router } from "express";
+import express from "express";
 import {
   getAllbooks,
   getByCategory,
@@ -18,4 +18,5 @@ router.post("/new-order", createOrder);
 router.post("/signup", createUser);
 router.post("/login", login);
 router.get("/:id", getById);
+
 export default router;
