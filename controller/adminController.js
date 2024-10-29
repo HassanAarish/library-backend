@@ -1,97 +1,121 @@
 import Book from "../models/Books.Model.js";
 import User from "../models/User.Model.js";
+import asyncHandler from "../middlewares/asyncHandler.js";
+import ErrorResponse from "../utils/errorResponse.js";
 
-export const addBook = async (req, res) => {
+export const addBook = asyncHandler(async (req, res, next) => {
   const { title, category, author, price } = req.body;
+  const userId = req.userID;
   try {
-    const user = await User.findById(req.userID);
-    if (user.isAdmin === true) {
+    if (!title || !category || !author || !price) {
+      return next(new ErrorResponse("Please provide all the feilds", 404));
+    }
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
+    }
+
+    if (user.role === "admin") {
       const book = await Book.create(req.body);
+
       return res.status(200).json({
+        success: true,
         message: "Book added successfully !",
-        book,
+        data: book,
       });
     }
-    res.status(403).json({ message: "User not Authorized" });
+    return next(new ErrorResponse("User not Authorized", 403));
   } catch (error) {
-    res.status(500).json({
-      message: "Unable to add the book, Kindly re-enter the details !",
-    });
+    return next(error);
   }
-};
+});
 
-export const updateBook = async (req, res) => {
-  const { title, id } = req.query;
-  console.log(req.query);
+export const updateBook = asyncHandler(async (req, res, next) => {
+  const { bookId } = req.params;
+  const userId = req.userID;
+
   try {
-    const user = await User.findById(req.userID);
-    if (user.isAdmin === true) {
-      // console.log(req.params);
-
-      if (req.params) {
-        const updatedBook = await Book.findByIdAndUpdate(req.params.id, {
-          title: req.query.title,
-        });
-        console.log(updatedBook);
-        res.status(200).json({ message: "Book updated successfully" });
-      } else {
-        res.status(400).json({ message: "Unable to update the book!" });
-      }
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
     }
-    res.status(400).json({ message: "User unauthorized to make changs!" });
-  } catch (error) {
-    res.status(500).json({
-      message:
-        "Wrong Book Selected for updating, kindly re-enter the book title! ",
-    });
-  }
-};
 
-export const deleteBook = async (req, res) => {
-  const { title, id } = req.query;
-  try {
-    const user = await User.findById(req.userID);
-    if (user.isAdmin === true) {
-      const deletedBook = await Book.findByIdAndDelete(req.params.id);
-      console.log(deletedBook);
-      return res.status(200).json({ message: "Book deleted successfully" });
+    if (user.role !== "admin") {
+      return next(new ErrorResponse("Not authorized to update books", 403));
     }
-    res.status(400).json({ message: "User unauthorized to make changs!" });
-  } catch (error) {
-    res.status(500).json({
-      message:
-        "Wrong Title entered for deleting, kindly re-enter the Book Title! ",
-    });
-  }
-};
 
-export const deleteAll = async (req, res) => {
-  try {
-    const user = await User.findById(req.userID);
-    if (user.isAdmin === true) {
-      const allBooks = await Book.find({});
-      for (let i = 0; i < allBooks.length; i++) {
-        console.log(`Deleted id: ${allBooks[i]._id}`);
-        await Book.findByIdAndDelete(allBooks[i]._id);
-      }
-      res.status(200).json({ Success: true });
+    const book = await Book.findById(bookId);
+    if (!book) {
+      return next(new ErrorResponse("Book not found", 404));
     }
-  } catch (error) {
-    res.status(500).json({
-      message: "Unable to delete the books !",
-    });
-  }
-};
 
-export const getAllUserProfiles = async (req, res) => {
-  const user = await User.findById(req.userID);
-  if (user.isAdmin === true) {
-    const user = await User.find({ isAdmin: false });
-    res.status(200).json({
+    const updatedBook = await Book.findByIdAndUpdate(bookId, req.body, {
+      new: true,
+      runValidators: true,
+    });
+
+    return res.status(200).json({
       success: true,
-      users: user,
+      data: updatedBook,
     });
-  } else {
-    res.status(403).json({ message: "User unauthorized for this request!" });
+  } catch (error) {
+    return next(error);
   }
-};
+});
+
+export const deleteBook = asyncHandler(async (req, res, next) => {
+  const { bookId } = req.params;
+  const userId = req.userID;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
+    }
+
+    if (user.role !== "admin") {
+      return next(new ErrorResponse("Not authorized to update books", 403));
+    }
+
+    const book = await Book.findById(bookId);
+    if (!book) {
+      return next(new ErrorResponse("Book not found", 404));
+    }
+
+    await book.remove();
+
+    return res.status(200).json({
+      success: true,
+      message: "Book deleted successfully",
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+export const getAllUserProfiles = asyncHandler(async (req, res, next) => {
+  const userId = req.userID;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
+    }
+
+    if (user.role === "admin") {
+      const users = await User.find({ role: "user" });
+      return res.status(200).json({
+        success: true,
+        message: "All users deleted successfully!",
+        data: users,
+      });
+    } else {
+      return next(
+        new ErrorResponse("User unauthorized for this request!", 403)
+      );
+    }
+  } catch (error) {
+    return next(error);
+  }
+});

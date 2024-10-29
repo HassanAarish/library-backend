@@ -1,20 +1,21 @@
-import express, { Router } from "express";
+import express from "express";
+import verifyToken from "../middlewares/verifyToken.js";
+import verifyRole from "../middlewares/verifyRole.js";
 import {
   addBook,
-  deleteAll,
   deleteBook,
   getAllUserProfiles,
   updateBook,
 } from "../controller/adminController.js";
-import { adminUser } from "../controller/UserController.js";
 
 const router = express.Router();
 
-router.post("/add-new-book", addBook);
-router.get("/all-users", getAllUserProfiles);
-router.post("/delete-all", deleteAll);
-router.post("/admin-signup", adminUser);
-router.put("/:id", updateBook);
-router.delete("/:id", deleteBook);
+router.post("/add-new-book", verifyToken, verifyRole, addBook);
+
+router.get("/all-users", verifyToken, verifyRole, getAllUserProfiles);
+
+router.put("/:bookId", verifyToken, verifyRole, updateBook);
+
+router.delete("/:bookId", verifyToken, verifyRole, deleteBook);
 
 export default router;

@@ -1,138 +1,198 @@
 import User from "../models/User.Model.js";
 import bcrypt from "bcryptjs";
-import { generateToken } from "../utils/generateTokens.js";
+import asyncHandler from "../middlewares/asyncHandler.js";
+import ErrorResponse from "../utils/errorResponse.js";
 
-export const createUser = async (req, res) => {
-  const { name, email, password } = req.body;
-
+export const getUserProfile = asyncHandler(async (req, res, next) => {
   try {
-    // Check if all fields are provided
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        message: "Please enter all fields!",
-      });
+    const user = await User.findById(req.userID).select("-password");
+
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
     }
 
-    // if Check for user email.
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        message: "User already exists",
-      });
-    }
-
-    // Hash the password - Bcrypt method
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create a new user
-    const newUser = new User({
-      name,
-      email,
-      password: hashedPassword,
-      userRole: req.body.userRole || "user",
-      isAdmin: req.body.isAdmin || false,
-    });
-
-    // Save the user to the database
-    await newUser.save();
-    const token = generateToken(newUser);
-
-    res.status(201).json({
-      message: "User created successfully",
-      token,
+    return res.status(201).json({
+      success: true,
+      data: user,
     });
   } catch (error) {
-    console.error("Error creating user:", error);
-    res.status(500).json({
-      message: "Internal server error",
-    });
+    return next(error);
   }
-};
+});
 
-export const login = async (req, res) => {
-  const { email, password } = req.body;
-
+export const updateUserProfile = asyncHandler(async (req, res, next) => {
   try {
-    if (email === "" || password === "") {
-      return res.status(400).json({
-        message: "Please enter username and password",
-      });
-    }
-    const user = await User.findOne({
-      email: email,
-    });
+    const userId = req.userID;
+    const user = await User.findById(userId);
+
     if (!user) {
-      return res.status(404).json({
-        message: "User not found with corresponding email",
-      });
+      return next(new ErrorResponse("Failed to Update User Profile", 400));
     }
-    // const checkPassword = user.rows[0].password === password;
-    bcrypt.compare(password, user.password, function (err, result) {
-      console.log("result ", result);
-      if (result !== true) {
-        return res.status(403).json({
-          message: "Incorrect password",
-        });
-      } else {
-        const token = generateToken(user);
-        res.status(200).json({
-          message: "Login successful",
-          data: user,
-          token,
-        });
+
+    const allowedUserUpdates = [
+      "firstName",
+      "lastName",
+      "phoneNumber",
+      "dob",
+      "gender",
+    ];
+    allowedUserUpdates.forEach((field) => {
+      if (req.body[field] !== "") {
+        user[field] = req.body[field];
       }
     });
-  } catch (error) {
-    console.error(error);
-    res.status(403).json({
-      error: error,
-    });
-  }
-};
 
-export const adminUser = async (req, res) => {
-  const { name, email, password, isAdmin, userRole } = req.body;
+    if (req.body.preferences) {
+      if (!user.preferences) {
+        user.preferences = {};
+      }
+
+      const allowedPreferencesUpdates = [
+        "bio",
+        "address",
+        "country",
+        "city",
+        "state",
+        "postalCode",
+        "currencyCode",
+        "language",
+      ];
+
+      allowedPreferencesUpdates.forEach((field) => {
+        if (req.body.preferences[field] !== "") {
+          user.preferences[field] = req.body.preferences[field];
+        }
+      });
+    }
+
+    await user.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "User profile updated successfully.",
+      data: user,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+export const updatePassword = asyncHandler(async (req, res, next) => {
+  const { currentPassword, newPassword } = req.body;
 
   try {
-    // Check if all fields are provided
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        message: "Please enter all fields!",
-      });
+    const user = await User.findById(req.userID).select("+password");
+
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
     }
 
-    // if Check for user email.
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        message: "Admin already exists",
-      });
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isMatch) {
+      return next(new ErrorResponse("Invalid password", 401));
     }
 
-    // Hash the password - Bcrypt method
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const isOldPassword = await bcrypt.compare(newPassword, user.password);
 
-    // Create a new user
-    const newAdmin = new User({
-      name,
-      email,
-      password: hashedPassword,
-      userRole: req.body.userRole || "user",
-      isAdmin: req.body.isAdmin || true,
-    });
+    if (isOldPassword) {
+      return next(
+        new ErrorResponse(
+          "New password cannot be the same as the old password.",
+          400
+        )
+      );
+    }
 
-    // Save the user to the database
-    await newAdmin.save();
-    const token = generateToken(newAdmin);
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    res.status(201).json({
-      message: "New Admin registered successfully",
-      token,
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(201).json({
+      success: true,
+      data: "Password updated successfully",
     });
   } catch (error) {
-    console.error("Error creating new Admin:", error);
-    res.status(500).json({
-      message: "Internal server error",
-    });
+    return next(error);
   }
-};
+});
+
+export const addOrUpdateProfilePicture = asyncHandler(
+  async (req, res, next) => {
+    const { profilePicture } = req.body;
+    // Find the user by ID
+    const user = await User.findById(req.userID);
+
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
+    }
+
+    try {
+      // If a previous profile picture exists, delete it (update case)
+      if (user.profilePicture && user.profilePicture.public_id) {
+        await cloudinary.v2.uploader.destroy(user.profilePicture.public_id);
+      }
+
+      // Upload the new profile picture to Cloudinary
+      const uploadImage = await cloudinary.v2.uploader.upload(profilePicture, {
+        folder: "Library/profile-pictures",
+      });
+
+      // Initialize profilePicture object if it doesn't exist
+      if (!user.profilePicture) {
+        user.profilePicture = {};
+      }
+
+      // Update the profilePicture with new image data
+      user.profilePicture.url = uploadImage.secure_url;
+      user.profilePicture.public_id = uploadImage.public_id;
+
+      // Save the updated user document
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Image uploaded/updated successfully",
+        data: user.profilePicture,
+      });
+    } catch (error) {
+      console.error(error);
+      return next(new ErrorResponse("Image upload/update failed", 500));
+    }
+  }
+);
+
+export const removeProfilePicture = asyncHandler(async (req, res, next) => {
+  try {
+    const user = await User.findById(req.userID);
+
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
+    }
+
+    if (!user.profilePicture || !user.profilePicture.public_id) {
+      return next(
+        new ErrorResponse(
+          "No profile picture found to remove or have already been removed",
+          400
+        )
+      );
+    }
+
+    await cloudinary.v2.uploader.destroy(user.profilePicture.public_id);
+
+    user.profilePicture = undefined;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile picture removed successfully",
+    });
+  } catch (error) {
+    console.error("Error removing profile picture from Cloudinary:", error);
+    return next(new ErrorResponse("Profile picture removal failed", 500));
+  }
+});
