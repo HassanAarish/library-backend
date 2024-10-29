@@ -1,40 +1,45 @@
-import Book from "../models/book.js";
+import asyncHandler from "../middlewares/asyncHandler.js";
+import ErrorResponse from "../utils/errorResponse.js";
+import Book from "../models/Books.Model.js";
 
-export const getAllbooks = async (req, res) => {
+export const getAllbooks = asyncHandler(async (req, res, next) => {
   try {
     const books = await Book.find({
       isRented: false,
     }).sort({
       createdAt: -1,
     });
-    res.status(200).json(books);
-  } catch (error) {
-    res.status(500).json({
-      message: "Unable to find the book, please re-enter the book title !",
+    return res.status(200).json({
+      success: true,
+      message: "All books fetched successfully",
+      data: books,
     });
+  } catch (error) {
+    return next(error);
   }
-};
+});
 
-export const getByCategory = async (req, res) => {
+export const getByCategory = asyncHandler(async (req, res, next) => {
   try {
     const category = req.params["category"];
     console.log("Category: ", category);
 
     const books = await Book.find({ category });
     console.log("books: ", books);
+
     if (books.length === 0) {
-      console.log("No books found for your category: ", category);
-      return res.status(301).send({
-        message: "Nothing found",
-      });
+      return next(
+        new ErrorResponse(`No books found for your category: ${category}`, 301)
+      );
     }
-    res.status(200).send(books);
+    return res.status(200).json({ success: true, data: books });
   } catch (error) {
     console.log(error);
+    return next(error);
   }
-};
+});
 
-export const getById = async (req, res) => {
+export const getById = asyncHandler(async (req, res, next) => {
   try {
     const bookId = req.params.id;
     console.log("bookId: ", bookId);
@@ -43,19 +48,19 @@ export const getById = async (req, res) => {
     console.log("books: ", books);
     if (books.length === 0) {
       console.log(`No books found for your ID: ${bookId}`, bookId);
-      return res.status(301).send({
-        message: "Nothing found",
-      });
+      return next(new ErrorResponse("Nothing found", 404));
     }
-    res
-      .status(200)
-      .json({ message: `Book found with the id: ${bookId}`, books });
+    return res.status(200).json({
+      success: true,
+      message: `Book found with the id: ${bookId}`,
+      data: books,
+    });
   } catch (error) {
     console.log(error);
   }
-};
+});
 
-export const searchBook = async (req, res) => {
+export const searchBook = asyncHandler(async (req, res, next) => {
   const { input } = req.body;
   const searchLower = input.toLowerCase();
   try {
@@ -76,4 +81,4 @@ export const searchBook = async (req, res) => {
     console.error(error);
     res.status(404);
   }
-};
+});

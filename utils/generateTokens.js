@@ -8,7 +8,7 @@ const generateToken = (userInfo) => {
       user: {
         userEmail: userInfo.email,
         userID: userInfo._id,
-        role: userInfo.userRole,
+        role: userInfo.role,
       },
     },
     process.env.SECRET_KEY,

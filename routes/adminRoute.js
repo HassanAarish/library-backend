@@ -1,5 +1,4 @@
 import express, { Router } from "express";
-import verifyUserToken from "../middlewares/verifyUserToken.js";
 import {
   addBook,
   deleteAll,
@@ -11,11 +10,11 @@ import { adminUser } from "../controller/UserController.js";
 
 const router = express.Router();
 
-router.post("/add-new-book", verifyUserToken, addBook);
-router.get("/all-users", verifyUserToken, getAllUserProfiles);
-router.post("/delete-all", verifyUserToken, deleteAll);
-router.post("/admin-signup", verifyUserToken, adminUser);
-router.put("/:id", verifyUserToken, updateBook);
-router.delete("/:id", verifyUserToken, deleteBook);
+router.post("/add-new-book", addBook);
+router.get("/all-users", getAllUserProfiles);
+router.post("/delete-all", deleteAll);
+router.post("/admin-signup", adminUser);
+router.put("/:id", updateBook);
+router.delete("/:id", deleteBook);
 
 export default router;

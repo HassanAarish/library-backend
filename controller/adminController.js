@@ -1,5 +1,5 @@
-import Book from "../models/Book.js";
-import User from "../models/user.js";
+import Book from "../models/Books.Model.js";
+import User from "../models/User.Model.js";
 
 export const addBook = async (req, res) => {
   const { title, category, author, price } = req.body;

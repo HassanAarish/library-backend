@@ -1,6 +1,7 @@
+import ErrorResponse from "../utils/errorResponse.js";
 import jwt from "jsonwebtoken";
 
-const verifyUserToken = async (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   let token;
   if (
     req.headers.authorization &&
@@ -10,29 +11,22 @@ const verifyUserToken = async (req, res, next) => {
   }
 
   if (!token) {
-    return res.status(401).json({
-      message: "User unauthorized: ",
-    });
+    return next(new ErrorResponse("No access token was provided.", 401));
   }
 
   try {
     jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
       if (err) {
-        return res.status(401).json({
-          message:
-            "User unauthorized: Please login or signup to place the order",
-        });
+        return next(new ErrorResponse("Invalid access token.", 401));
       }
       req.userID = decoded.user.userID;
-      req.userRole = decoded.user.role;
+      req.role = decoded.user.role;
       req.userEmail = decoded.user.userEmail;
       next();
     });
   } catch (error) {
-    return res.status(401).json({
-      message: "Not authorized to access this route: ",
-    });
+    return next(new ErrorResponse("Not authorized to access this route", 401));
   }
 };
 
-export default verifyUserToken;
+export default verifyToken;
