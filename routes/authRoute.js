@@ -20,6 +20,6 @@ router.post("/forgot-password", forgotPassword);
 
 router.post("/reset-password/:token", resetPassword);
 
-router.post("/instructor-register", adminRegister);
+router.post("/admin-register", adminRegister);
 
 export default router;

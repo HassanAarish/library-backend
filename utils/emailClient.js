@@ -67,28 +67,3 @@ export const passwordResetEmail = async (email, link) => {
     return error;
   }
 };
-
-export const sendReminderEmail = async (contract) => {
-  try {
-    const mailOptions = {
-      from: process.env.EMAIL,
-      to: contract.email,
-      subject: "Contract Reminder",
-      text: `Hello ${contract.firstName} ${contract.lastName},
-
-This is a reminder regarding your contract with us. Please note that the contract is effective starting on ${contract.effectiveDate.toDateString()}.
-
-Thank you for your attention!
-
-Best regards,
-Stitched Together Studios
-    `,
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    return info;
-  } catch (error) {
-    console.error("🚀 ~ Error sending Email: ", error);
-    return next(error);
-  }
-};

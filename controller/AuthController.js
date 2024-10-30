@@ -10,49 +10,48 @@ import crypto from "crypto";
 // Registration Controllers
 
 export const register = asyncHandler(async (req, res, next) => {
-  const { firstName, lastName, email, password, authType } = req.body;
+  const { name, email, password, authType } = req.body;
 
   const session = await connection.startSession();
   session.startTransaction();
 
   try {
-    if (!firstName || !lastName || !email || !password) {
-      await session.abortTransaction();
-      session.endSession();
-      return next(
-        new ErrorResponse("Please provide all required fields.", 400)
-      );
-    }
-
-    const userExist = await User.findOne({ email }).session(session);
-    if (userExist) {
-      await session.abortTransaction();
-      session.endSession();
-      return next(
-        new ErrorResponse("User with the same email already exists", 401)
-      );
-    }
-
     if (authType === "email") {
+      if (!name || !email || !password) {
+        await session.abortTransaction();
+        session.endSession();
+        return next(
+          new ErrorResponse("Please provide all required fields.", 400)
+        );
+      }
+
+      const userExist = await User.findOne({ email }).session(session);
+      if (userExist) {
+        await session.abortTransaction();
+        session.endSession();
+        return next(
+          new ErrorResponse("User with the same email already exists", 401)
+        );
+      }
+
+      // Hash password and generate OTP
       const passwordHash = await bcrypt.hash(password, 10);
       const otp = Math.floor(100000 + Math.random() * 900000);
       const expiry = new Date();
       expiry.setMinutes(expiry.getMinutes() + 5);
 
       const user = new User({
-        firstName,
-        lastName,
+        name,
         email,
         password: passwordHash,
         authType,
-        otp: { code: otp, expiry },
+        otp: { code: otp, expiry: expiry },
         isVerified: false,
       });
       await user.save({ session });
 
+      // Send OTP to user's email
       const info = await sendOtp(email, otp);
-      console.log("OTP: ", otp);
-
       if (info instanceof Error) {
         await session.abortTransaction();
         session.endSession();
@@ -62,66 +61,23 @@ export const register = asyncHandler(async (req, res, next) => {
       await session.commitTransaction();
       session.endSession();
 
-      res.status(201).json({
-        success: true,
-        message: "OTP sent. Please verify to complete registration.",
-      });
-    } else if (authType === "google" || authType === "apple") {
-      // For social logins, you may skip OTP or handle verification differently
-      const userData = {
-        firstName,
-        lastName,
-        email,
-        authType,
-        isVerified: false,
-      };
-
-      const [user] = await User.create([userData], { session });
-      console.log("User registered: ", user);
-
-      await session.commitTransaction();
-      session.endSession();
-
-      const token = generateToken(user);
-
-      await session.commitTransaction();
-      session.endSession();
-
-      res.status(201).json({
-        success: true,
-        message: "OTP sent. Please verify to complete registration.",
-      });
-    } else if (authType === "google" || authType === "apple") {
-      if (!firstName || !lastName || !email) {
-        await session.abortTransaction();
-        session.endSession();
-        return next(new ErrorResponse("Please provide all fields", 400));
-      }
-
-      let userData = {
-        firstName,
-        lastName,
-        email,
-        authType,
-        otp: { code: otp, expiry },
-        isVerified: false,
-      };
-      const user = await User.create([userData], { session });
-      await session.commitTransaction();
-      session.endSession();
-
-      // generate a token
-      const token = generateToken(user);
-
       return res.status(201).json({
         success: true,
-        data: user,
-        token,
+        message: "OTP sent. Please verify to complete registration.",
       });
+    }
+
+    // Redirect to Google or Facebook for social login
+    else if (authType === "google" || authType === "facebook") {
+      await session.abortTransaction();
+      session.endSession();
+      return next(
+        new ErrorResponse("Redirect to Google/Facebook for authentication", 302)
+      );
     } else {
       await session.abortTransaction();
       session.endSession();
-      return next(new ErrorResponse("Invalid authentication type", 500));
+      return next(new ErrorResponse("Invalid authentication type", 400));
     }
   } catch (error) {
     await session.abortTransaction();
@@ -145,7 +101,7 @@ export const verifyOtp = asyncHandler(async (req, res, next) => {
     }
 
     // Validate OTP existence and matching
-    if (!user.otp || user.otp.code !== otp) {
+    if (user.otp.code !== otp) {
       await session.abortTransaction();
       session.endSession();
       return next(new ErrorResponse("Invalid OTP", 400));
@@ -168,7 +124,7 @@ export const verifyOtp = asyncHandler(async (req, res, next) => {
 
     const token = generateToken(user);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: user,
       token,
@@ -293,14 +249,14 @@ export const resetPassword = asyncHandler(async (req, res, next) => {
 // Instructor Registration
 
 export const adminRegister = asyncHandler(async (req, res, next) => {
-  const { firstName, lastName, email, password, userRole, authType } = req.body;
+  const { name, email, password, authType } = req.body;
 
   const session = await connection.startSession();
   session.startTransaction();
 
   try {
     if (authType === "email") {
-      if (!firstName || !lastName || !email || !password || !userRole) {
+      if (!name || !email || !password) {
         await session.abortTransaction();
         session.endSession();
         return next(
@@ -325,17 +281,16 @@ export const adminRegister = asyncHandler(async (req, res, next) => {
         expiry.setMinutes(expiry.getMinutes() + 5); // 5 minutes expiry
 
         const user = await User({
-          firstName,
-          lastName,
+          name,
           email,
           password: passwordHash,
-          userRole,
+          role: "admin",
+          otp: { code: otp, expiry: expiry },
           authType,
         });
         await user.save({ session });
 
         const info = await sendOtp(email, otp);
-        console.log("OTP: ", otp);
 
         if (info instanceof Error) {
           await session.abortTransaction();
@@ -351,17 +306,16 @@ export const adminRegister = asyncHandler(async (req, res, next) => {
           message: "OTP sent. Please verify to complete registration.",
         });
       } else if (authType === "google" || authType === "apple") {
-        if (!firstName || !lastName || !email) {
+        if (!name || !email) {
           await session.abortTransaction();
           session.endSession();
           return next(new ErrorResponse("Please provide all fields", 400));
         }
 
         let userData = {
-          firstName,
-          lastName,
+          name,
           email,
-          userRole,
+          role: "admin",
           authType,
           otp: { code: otp, expiry },
           isVerified: false,
