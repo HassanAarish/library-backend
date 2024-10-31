@@ -8,7 +8,7 @@ const verifyRole = (...roles) => {
       }
 
       // Check if the user's role is included in the roles passed to the middleware
-      const isAllowed = roles.includes(req.userRole);
+      const isAllowed = roles.includes(req.role);
 
       if (!isAllowed) {
         return next(new ErrorResponse("Permission Denied", 403));

@@ -2,7 +2,7 @@ import express from "express";
 import {
   getAllbooks,
   getByCategory,
-  getById,
+  getBookById,
   searchBook,
 } from "../controller/BooksController.js";
 
@@ -12,8 +12,8 @@ router.get("/all", getAllbooks);
 
 router.get("/search", searchBook);
 
-router.get("/genre/:category", getByCategory);
+router.get("/genre", getByCategory);
 
-router.get("/:id", getById);
+router.get("/:bookId", getBookById);
 
 export default router;

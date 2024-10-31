@@ -1,13 +1,20 @@
 import mongoose from "mongoose";
 import mongooseAutoPopulate from "mongoose-autopopulate";
 
-const orderSchema = new mongoose.Schema(
+const OrderSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
       autopopulate: true,
+    },
+    paymentResult: {
+      id: { type: String },
+      paymentReceived: { type: Number },
+      email_address: { type: String },
+      isRefunded: { type: Boolean, default: false },
+      refundedAmount: { type: Number },
     },
     rentedBooks: [
       {
@@ -29,13 +36,16 @@ const orderSchema = new mongoose.Schema(
     ],
     totalPrice: {
       type: Number,
-      required: true,
+    },
+    isRefunded: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }
 );
 
-orderSchema.plugin(mongooseAutoPopulate);
-const order = mongoose.model("Order", orderSchema);
+OrderSchema.plugin(mongooseAutoPopulate);
+const Order = mongoose.model("Order", OrderSchema);
 
-export default order;
+export default Order;

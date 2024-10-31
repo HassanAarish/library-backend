@@ -21,11 +21,9 @@ export const getAllbooks = asyncHandler(async (req, res, next) => {
 
 export const getByCategory = asyncHandler(async (req, res, next) => {
   try {
-    const category = req.params["category"];
-    console.log("Category: ", category);
+    const { category } = req.body;
 
     const books = await Book.find({ category });
-    console.log("books: ", books);
 
     if (books.length === 0) {
       return next(
@@ -39,20 +37,16 @@ export const getByCategory = asyncHandler(async (req, res, next) => {
   }
 });
 
-export const getById = asyncHandler(async (req, res, next) => {
+export const getBookById = asyncHandler(async (req, res, next) => {
+  const { bookId } = req.params;
   try {
-    const bookId = req.params.id;
-    console.log("bookId: ", bookId);
-
-    const books = await Book.find({ bookId });
-    console.log("books: ", books);
-    if (books.length === 0) {
-      console.log(`No books found for your ID: ${bookId}`, bookId);
-      return next(new ErrorResponse("Nothing found", 404));
+    const books = await Book.findById(bookId);
+    if (!books) {
+      return next(new ErrorResponse("No Book found", 404));
     }
     return res.status(200).json({
       success: true,
-      message: `Book found with the id: ${bookId}`,
+      message: `Book found with the title: ${books.title}`,
       data: books,
     });
   } catch (error) {

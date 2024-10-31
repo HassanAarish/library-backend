@@ -10,12 +10,12 @@ import {
 
 const router = express.Router();
 
-router.post("/add-new-book", verifyToken, verifyRole, addBook);
+router.post("/add-new-book", verifyToken, verifyRole("admin"), addBook);
 
-router.get("/all-users", verifyToken, verifyRole, getAllUserProfiles);
+router.get("/all-users", verifyToken, verifyRole("admin"), getAllUserProfiles);
 
-router.put("/:bookId", verifyToken, verifyRole, updateBook);
+router.put("/:bookId", verifyToken, verifyRole("admin"), updateBook);
 
-router.delete("/:bookId", verifyToken, verifyRole, deleteBook);
+router.delete("/:bookId", verifyToken, verifyRole("admin"), deleteBook);
 
 export default router;

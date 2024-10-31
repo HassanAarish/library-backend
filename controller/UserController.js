@@ -1,5 +1,6 @@
 import User from "../models/User.Model.js";
 import bcrypt from "bcryptjs";
+import cloudinary from "cloudinary";
 import asyncHandler from "../middlewares/asyncHandler.js";
 import ErrorResponse from "../utils/errorResponse.js";
 
@@ -20,56 +21,26 @@ export const getUserProfile = asyncHandler(async (req, res, next) => {
   }
 });
 
-export const updateUserProfile = asyncHandler(async (req, res, next) => {
+export const updateProfile = asyncHandler(async (req, res, next) => {
+  const { name, phoneNumber, dob, gender } = req.body;
+  const userId = req.userID;
+
   try {
-    const userId = req.userID;
     const user = await User.findById(userId);
 
     if (!user) {
-      return next(new ErrorResponse("Failed to Update User Profile", 400));
+      return next(new ErrorResponse("User not found", 404));
     }
 
-    const allowedUserUpdates = [
-      "firstName",
-      "lastName",
-      "phoneNumber",
-      "dob",
-      "gender",
-    ];
-    allowedUserUpdates.forEach((field) => {
-      if (req.body[field] !== "") {
-        user[field] = req.body[field];
-      }
-    });
-
-    if (req.body.preferences) {
-      if (!user.preferences) {
-        user.preferences = {};
-      }
-
-      const allowedPreferencesUpdates = [
-        "bio",
-        "address",
-        "country",
-        "city",
-        "state",
-        "postalCode",
-        "currencyCode",
-        "language",
-      ];
-
-      allowedPreferencesUpdates.forEach((field) => {
-        if (req.body.preferences[field] !== "") {
-          user.preferences[field] = req.body.preferences[field];
-        }
-      });
-    }
+    user.name = name || user.name;
+    user.phoneNumber = phoneNumber || user.phoneNumber;
+    user.dob = dob || user.dob;
+    user.gender = gender || user.gender;
 
     await user.save();
 
     return res.status(201).json({
       success: true,
-      message: "User profile updated successfully.",
       data: user,
     });
   } catch (error) {

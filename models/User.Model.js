@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-// Define the user schema
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -25,6 +24,15 @@ const userSchema = new mongoose.Schema(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    phoneNumber: {
+      type: String,
+    },
+    gender: {
+      type: String,
+    },
+    dob: {
+      type: Date,
     },
     otp: {
       code: {
@@ -57,7 +65,6 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Create the User model
 const User = mongoose.model("User", userSchema);
 
 export default User;
