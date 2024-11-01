@@ -10,7 +10,7 @@ const router = express.Router();
 
 router.get("/all", getAllbooks);
 
-router.get("/search", searchBook);
+router.post("/search", searchBook);
 
 router.get("/genre", getByCategory);
 

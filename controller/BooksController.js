@@ -55,7 +55,7 @@ export const getBookById = asyncHandler(async (req, res, next) => {
 });
 
 export const searchBook = asyncHandler(async (req, res, next) => {
-  const { input } = req.body;
+  const { input } = req.query;
   const searchLower = input.toLowerCase();
   try {
     const books = await Book.find({});
@@ -68,11 +68,12 @@ export const searchBook = asyncHandler(async (req, res, next) => {
           category.toLowerCase().includes(searchLower)
         )
     );
-    res.status(200).json({
+    console.log("🚀 ~ searchBook ~ filtered:", filtered);
+    return res.status(200).json({
       books: filtered,
     });
   } catch (error) {
     console.error(error);
-    res.status(404);
+    return next(error);
   }
 });

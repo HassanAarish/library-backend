@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 import Stripe from "stripe";
 
 const stripe =
-  process.env.STRIPE_SECRET_KEY ||
+  new Stripe(process.env.STRIPE_SECRET_KEY) ||
   new Stripe(
     "sk_test_51Q0o7LJptLTFCZSKQyvnjsLxsB1WODmOJ81FDgMZs4hfJyNqUCsMve6VEi5FprMlgxWITlkKdFIzNpfIdYStTOiS00oHLfm9HV"
   );

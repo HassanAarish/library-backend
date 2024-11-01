@@ -1,5 +1,3 @@
-// Adding books to the data base
-
 import mongoose from "mongoose";
 
 const BooksSchema = mongoose.Schema(
