@@ -15,16 +15,14 @@ export const register = asyncHandler(async (req, res, next) => {
   const session = await connection.startSession();
   session.startTransaction();
 
+  if (!name || !email || !password) {
+    await session.abortTransaction();
+    session.endSession();
+    return next(new ErrorResponse("Please provide all required fields.", 400));
+  }
+
   try {
     if (authType === "email") {
-      if (!name || !email || !password) {
-        await session.abortTransaction();
-        session.endSession();
-        return next(
-          new ErrorResponse("Please provide all required fields.", 400)
-        );
-      }
-
       const userExist = await User.findOne({ email }).session(session);
       if (userExist) {
         await session.abortTransaction();
@@ -48,6 +46,7 @@ export const register = asyncHandler(async (req, res, next) => {
         otp: { code: otp, expiry: expiry },
         isVerified: false,
       });
+      console.log("otp", otp);
       await user.save({ session });
 
       // Send OTP to user's email
@@ -136,7 +135,7 @@ export const verifyOtp = asyncHandler(async (req, res, next) => {
   }
 });
 
-// Login Controller
+// Login Controller with 2FA enabled/disabled
 
 export const login = asyncHandler(async (req, res, next) => {
   const { email, password, authType } = req.body;
@@ -156,6 +155,16 @@ export const login = asyncHandler(async (req, res, next) => {
 
       if (!isMatch) {
         return next(new ErrorResponse("Invalid credentials", 401));
+      }
+
+      if (user.twoFactorAuthentication) {
+        return res.status(200).json({
+          success: true,
+          message:
+            "2Factor Authentication is enabled. Please enter the OTP from your authenticator app.",
+          userId: user._id,
+          twoFactorAuthentication: true,
+        });
       }
 
       const newUser = await User.findOne({ email }).select("-password");
@@ -181,6 +190,53 @@ export const login = asyncHandler(async (req, res, next) => {
     } else {
       return next(new ErrorResponse("Invalid authentication type", 400));
     }
+  } catch (error) {
+    return next(error);
+  }
+});
+
+export const verifyTwoFactorAuth = asyncHandler(async (req, res, next) => {
+  try {
+    const { userId, otp } = req.body;
+
+    if (!userId || !otp) {
+      return next(new ErrorResponse("Please provide all the fields", 400));
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
+    }
+
+    if (!user.twoFactorSecret) {
+      return next(new ErrorResponse("2FA not initiated", 404));
+    }
+
+    // Creating a TOTP instance using the user's stored secret
+    const totp = new OTPAuth.TOTP({
+      issuer: "EFTS",
+      label: user.email,
+      algorithm: "SHA1",
+      digits: 6,
+      period: 30,
+      secret: OTPAuth.Secret.fromBase32(user.twoFactorSecret),
+    });
+
+    // Validate the OTP with a slight window tolerance
+    const validOTP = totp.validate({ token: otp, window: 0 });
+
+    if (validOTP === null) {
+      return next(new ErrorResponse("Invalid 2FA code", 401));
+    }
+
+    const token = generateToken(user);
+
+    return res.status(200).json({
+      success: true,
+      message: "2FA successful. You are now logged in.",
+      data: user,
+      token: token,
+    });
   } catch (error) {
     return next(error);
   }
@@ -344,3 +400,79 @@ export const adminRegister = asyncHandler(async (req, res, next) => {
     return next(error);
   }
 });
+
+// If user lost authentication app these endpoints will be applied.
+
+function generateOTP() {
+  const uniqueNumber = Math.floor(100000 + Math.random() * 900000);
+  return uniqueNumber;
+}
+
+// User will receive a verification email with otp to reset the password
+export const removeTwoFactor = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await User.findById(userId);
+    console.log("🚀 ~ user:", user);
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
+    }
+
+    if (!user.twoFactorAuthentication) {
+      return next(new ErrorResponse("User has not enabled 2FA", 404));
+    }
+
+    const otp = generateOTP();
+    user.resetPasswordToken = otp;
+    user.resetPasswordTokenExpiry = Date.now() + 10 * 60 * 1000;
+
+    await user.save();
+
+    // Send OTP to user's email
+    await authenticatorApp(user.email, otp);
+
+    return res.status(200).json({
+      success: true,
+      message: `OTP sent to ${user.email}. Please verify to disable 2FA.`,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// User will then verify the otp to remove the authentication from the authenticator app
+export const verifyOtpAndRemoveTwoFactor = asyncHandler(
+  async (req, res, next) => {
+    const { userId } = req.params;
+    const { otp } = req.body;
+
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        return next(new ErrorResponse("User not found", 404));
+      }
+
+      if (
+        user.resetPasswordToken !== otp ||
+        user.resetPasswordTokenExpiry < Date.now()
+      ) {
+        return next(new ErrorResponse("Invalid or expired OTP", 400));
+      }
+
+      user.twoFactorAuthentication = false;
+      user.twoFactorSecret = undefined;
+      user.resetPasswordToken = undefined;
+      user.resetPasswordTokenExpiry = undefined;
+
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Two-factor authentication has been removed.",
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);

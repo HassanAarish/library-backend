@@ -2,6 +2,8 @@ import express from "express";
 import verifyToken from "../middlewares/verifyToken.js";
 import {
   addOrUpdateProfilePicture,
+  disableTwoFactorAuth,
+  enableTwoFactorAuth,
   getUserProfile,
   removeProfilePicture,
   updatePassword,
@@ -44,6 +46,20 @@ router.delete(
   verifyToken,
   verifyRole("user", "admin"),
   removeProfilePicture
+);
+
+router.post(
+  "/enable-2fa",
+  verifyToken,
+  verifyRole("user", "admin"),
+  enableTwoFactorAuth
+);
+
+router.post(
+  "/disable-2fa",
+  verifyToken,
+  verifyRole("user", "admin"),
+  disableTwoFactorAuth
 );
 
 export default router;

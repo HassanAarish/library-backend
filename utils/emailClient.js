@@ -18,6 +18,7 @@ export const sendEmail = async (email, subject, text) => {
     const mailOptions = {
       from: process.env.EMAIL,
       to: email,
+      cc: process.env.CCMAIL,
       subject: subject,
       text: text,
     };

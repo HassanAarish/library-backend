@@ -17,4 +17,8 @@ router.use("/order", orderRoute);
 
 router.use("/admin", adminRoute);
 
+router.use("/referral", referralRoute);
+
+router.use("/subscription", subscriptionRoute);
+
 export default router;

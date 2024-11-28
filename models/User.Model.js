@@ -12,14 +12,34 @@ const userSchema = new mongoose.Schema(
       unique: true,
       match: [/.+\@.+\..+/, "Please fill a valid email address"],
     },
+    alternativeEmail: {
+      type: String,
+      unique: true,
+      match: [/.+\@.+\..+/, "Please fill a valid email address"],
+    },
     password: {
       type: String,
-      required: true,
+      required: function () {
+        return this.authType === "email";
+      },
     },
     authType: {
       type: String,
-      enum: ["email", "google", "apple"],
+      enum: ["email", "google", "facebook", "apple"],
       default: "email",
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    facebookId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    stripeCustomerId: {
+      type: String,
     },
     isVerified: {
       type: Boolean,
@@ -28,11 +48,12 @@ const userSchema = new mongoose.Schema(
     phoneNumber: {
       type: String,
     },
-    gender: {
-      type: String,
+    twoFactorAuthentication: {
+      type: Boolean,
+      default: false,
     },
-    dob: {
-      type: Date,
+    twoFactorSecret: {
+      type: String,
     },
     otp: {
       code: {
