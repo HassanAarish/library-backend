@@ -9,6 +9,7 @@ import { connectDB } from "./config/db.js";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import "./cron/userCleanUp.cron.js";
+import { initializeSocket } from "./socket.js";
 
 const app = express();
 
@@ -21,9 +22,18 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const io = initializeSocket(app);
+
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 app.use(
   cors({
     origin: "*",
+    allowedHeaders: ["Content-Type"],
+    methods: ["GET", "POST"],
   })
 );
 
@@ -44,15 +54,8 @@ app.use(
   })
 );
 
-const PORT = process.env.PORT || 5000;
 
 app.use(router);
-
-app.listen(PORT, () => {
-  console.log(
-    `🚀 ~ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
-  );
-});
 
 app.use(errorHandler);
 

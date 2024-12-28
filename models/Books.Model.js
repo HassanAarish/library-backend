@@ -6,6 +6,10 @@ const BooksSchema = mongoose.Schema(
       type: String,
       required: [true, "Please enter the book title: "],
     },
+    frontImage: {
+      type: String,
+      required: [true, "Please enter the book cover image: "],
+    },
     category: [
       {
         type: String,
