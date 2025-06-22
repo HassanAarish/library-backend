@@ -281,3 +281,4 @@ export const disableTwoFactorAuth = asyncHandler(async (req, res, next) => {
     return next(error);
   }
 });
+});

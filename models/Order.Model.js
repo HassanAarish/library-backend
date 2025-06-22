@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import mongooseAutoPopulate from "mongoose-autopopulate";
 
 const OrderSchema = new mongoose.Schema(
   {
@@ -7,7 +6,6 @@ const OrderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      autopopulate: true,
     },
     paymentResult: {
       id: { type: String },
@@ -22,7 +20,6 @@ const OrderSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: "Books",
           required: true,
-          autopopulate: true,
         },
         startDate: {
           type: String,
@@ -45,7 +42,6 @@ const OrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-OrderSchema.plugin(mongooseAutoPopulate);
 const Order = mongoose.model("Order", OrderSchema);
 
 export default Order;
