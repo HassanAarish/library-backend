@@ -4,6 +4,7 @@ import userRoute from "./userRoute.js";
 import bookRoute from "./booksRoute.js";
 import adminRoute from "./adminRoute.js";
 import orderRoute from "./orderRoute.js";
+import chatRoute from "./chatRoute.js";
 
 const router = express.Router();
 
@@ -20,5 +21,7 @@ router.use("/admin", adminRoute);
 router.use("/referral", referralRoute);
 
 router.use("/subscription", subscriptionRoute);
+
+router.use("/chat", chatRoute);
 
 export default router;

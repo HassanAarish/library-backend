@@ -62,7 +62,7 @@ export const register = asyncHandler(async (req, res, next) => {
 
       return res.status(201).json({
         success: true,
-        message: "OTP sent. Please verify to complete registration.",
+        message: "Registration successful. Please verify your email.",
       });
     }
 
@@ -100,7 +100,7 @@ export const verifyOtp = asyncHandler(async (req, res, next) => {
     }
 
     // Validate OTP existence and matching
-    if (user.otp.code !== otp) {
+    if (user?.otp?.code != otp) {
       await session.abortTransaction();
       session.endSession();
       return next(new ErrorResponse("Invalid OTP", 400));
@@ -121,12 +121,9 @@ export const verifyOtp = asyncHandler(async (req, res, next) => {
     await session.commitTransaction();
     session.endSession();
 
-    const token = generateToken(user);
-
     return res.status(201).json({
       success: true,
-      data: user,
-      token,
+      message: "Email verified successfully. Please login to continue !",
     });
   } catch (error) {
     await session.abortTransaction();
@@ -144,13 +141,15 @@ export const login = asyncHandler(async (req, res, next) => {
       return next(new ErrorResponse("Please provide email and password", 400));
     }
 
+    let user;
+
+    user = await User.findOne({ email });
+
+    if (!user) {
+      return next(new ErrorResponse("User not found", 404));
+    }
+
     if (authType === "email") {
-      const user = await User.findOne({ email }).select("+password");
-
-      if (!user) {
-        return next(new ErrorResponse("Invalid credentials", 401));
-      }
-
       const isMatch = await bcrypt.compare(password, user.password);
 
       if (!isMatch) {
@@ -171,15 +170,10 @@ export const login = asyncHandler(async (req, res, next) => {
       const token = generateToken(newUser);
       return res.status(201).json({
         success: true,
-        data: newUser,
+        data: user,
         token: token,
       });
     } else if (authType === "google" || authType === "apple") {
-      const user = await User.findOne({ email }).select("-password");
-
-      if (!user) {
-        return next(new ErrorResponse("Invalid credentials", 401));
-      }
       const token = generateToken(user);
 
       return res.status(201).json({
@@ -257,7 +251,8 @@ export const forgotPassword = asyncHandler(async (req, res, next) => {
     user.resetPasswordToken = resetToken;
     user.resetPasswordTokenExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
-    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
+    console.log("resetUrl", resetUrl);
 
     const resetEmail = await passwordResetEmail(email, resetUrl);
 
