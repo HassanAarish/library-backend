@@ -2,3 +2,4 @@
 /.env
 /config/logs
 /client_secret_454095077578-k0kul45u1t2gil2abgbbam3vb5ntl96n.apps.googleusercontent.com.json
+package-lock.json

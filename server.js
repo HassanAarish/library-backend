@@ -9,9 +9,11 @@ import { connectDB } from "./config/db.js";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import "./cron/userCleanUp.cron.js";
-import { initializeSocket } from "./socket.js";
+import setupMorganLogger from "./config/morgan.js";
 
 const app = express();
+
+setupMorganLogger();
 
 dotenv.config();
 
@@ -22,38 +24,17 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const io = initializeSocket(app);
-
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
-
-app.use(
-  cors({
-    origin: "*",
-    allowedHeaders: ["Content-Type"],
-    methods: ["GET", "POST"],
-  })
-);
+app.use(cors({ origin: "*" }));
 
 const __filename = fileURLToPath(import.meta.url);
+
 const __dirname = dirname(__filename);
 
 app.use("/v1/logs", express.static(path.join(__dirname, "/logs")));
-app.use(
-  express.json({
-    limit: "50mb",
-  })
-);
 
-app.use(
-  express.urlencoded({
-    limit: "50mb",
-    extended: true,
-  })
-);
+app.use(express.json({ limit: "50mb" }));
 
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 app.use(router);
 

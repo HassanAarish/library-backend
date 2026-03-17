@@ -1,5 +1,5 @@
 import ErrorResponse from "../utils/errorResponse.js";
-import logger from "../config/logger.cjs";
+import morgan from "morgan";
 
 // Middleware for handling errors
 
@@ -31,10 +31,18 @@ const errorHandler = (err, req, res, next) => {
     error = new ErrorResponse(message, 400);
   }
 
-  // Log to error using the configured logger, including the complete traceback
-  logger.error(error.message || "Internal Server Error", {
-    stack: error.stack,
-  });
+  // Log the error using Morgan
+  const errorDetails = [
+    `Error: ${error.message || "Internal Server Error"}`,
+    `Stack: ${err.stack || "No stack trace available"}`,
+    `IP: ${req.ip}`,
+    `URL: ${req.originalUrl}`,
+    `Method: ${req.method}`,
+    `Status Code: ${error.statusCode || 500}`,
+  ].join(" | ");
+
+  morgan.token("error-details", () => errorDetails);
+  morgan(":error-details")(req, res, () => {});
 
   // Send the error response to the client
 

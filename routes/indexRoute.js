@@ -5,6 +5,8 @@ import bookRoute from "./booksRoute.js";
 import adminRoute from "./adminRoute.js";
 import orderRoute from "./orderRoute.js";
 import chatRoute from "./chatRoute.js";
+import referralRoute from "./referralRoute.js";
+import subscriptionRoute from "./subscriptionRoute.js";
 
 const router = express.Router();
 

@@ -14,9 +14,14 @@ const connectDB = async () => {
     mongoose.set("strictPopulate", false);
     connection = await mongoose.connect(connectionUrl);
     console.log("🚀 ~ MongoDB connection SUCCESS");
+    console.log(
+      `MongoDB connected: ${connection.connection.host}` +
+        " " +
+        connection.connection.name
+    );
   } catch (error) {
     console.error("🚀 ~ MongoDB connection FAIL");
-    console.error(error);
+    console.error("Error got ", error);
     process.exit(1);
   }
 };
