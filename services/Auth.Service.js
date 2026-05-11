@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import Preferences from "../models/Preferences.Model.js";
 import User from "../models/User.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
@@ -65,7 +66,12 @@ export const register = async (body, session = null) => {
 export const verifyOtp = async (body, session = null) => {
   const { email, otp } = body;
 
-  const user = await User.findOne({ email, "otp.code": otp }).session(session);
+  const lowerEmail = helper.lowercaseEmail(email);
+
+  const user = await User.findOne({
+    email: lowerEmail,
+    "otp.code": otp,
+  }).session(session);
 
   if (!user) {
     return next(new ErrorResponse("User not found or have been deleted.", 404));
@@ -90,8 +96,10 @@ export const verifyOtp = async (body, session = null) => {
 export const login = async (body, session = null) => {
   const { email, password, authType } = body;
 
+  const lowerEmail = helper.lowercaseEmail(email);
+
   // 1. Pass the session to the query
-  const user = await User.findOne({ email })
+  const user = await User.findOne({ email: lowerEmail })
     .session(session)
     .select("+password");
 
@@ -123,4 +131,52 @@ export const login = async (body, session = null) => {
   delete userObj.password;
 
   return { user: userObj, token };
+};
+
+export const forgotPassword = async (body, session = null) => {
+  const { email } = body;
+
+  const lowerEmail = helper.lowercaseEmail(email);
+
+  const user = await User.findOne({ email: lowerEmail }).session(session);
+
+  if (!user) {
+    throw new ErrorResponse("User not found", 404);
+  }
+
+  const resetToken = crypto.randomBytes(20).toString("hex");
+
+  user.resetPassword.token = resetToken;
+  user.resetPassword.expiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+  await user.save({ session });
+
+  const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
+
+  // const resetEmail = await passwordResetEmail(email, resetUrl);
+
+  // if (resetEmail instanceof Error) {
+  //   return next(new ErrorResponse("Error sending password reset email", 500));
+  // }
+
+  return resetUrl;
+};
+
+export const resetPassword = async (body, session = null) => {
+  const { token, password } = body;
+  const user = await User.findOne({
+    "resetPassword.token": token,
+    "resetPassword.expiry": { $gt: Date.now() },
+  }).session(session);
+
+  if (!user) {
+    throw new ErrorResponse("Invalid or Expired Link", 400);
+  }
+
+  user.password = password;
+
+  user.resetPassword = undefined;
+
+  await user.save({ session });
+  return true;
 };

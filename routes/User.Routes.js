@@ -7,33 +7,21 @@ const router = express.Router();
 
 router.get("/profile", verifyToken, userController.getUserProfile);
 
-// router.put(
-//   "/update-password",
-//   verifyToken,
-//   verifyRole("user", "admin"),
-//   updatePassword
-// );
+router.put("/profile-update", verifyToken, userController.updateProfile);
 
-// router.put(
-//   "/profile-update",
-//   verifyToken,
-//   verifyRole("user", "admin"),
-//   updateProfile
-// );
+router.patch("/password-update", verifyToken, userController.updatePassword);
 
-// router.put(
-//   "/profile-picture",
-//   verifyToken,
-//   verifyRole("user", "admin"),
-//   addOrUpdateProfilePicture
-// );
+router.patch(
+  "/profile-picture",
+  verifyToken,
+  userController.addOrUpdateProfilePicture
+);
 
-// router.delete(
-//   "/remove-profile-picture",
-//   verifyToken,
-//   verifyRole("user", "admin"),
-//   removeProfilePicture
-// );
+router.delete(
+  "/remove-profile-picture",
+  verifyToken,
+  userController.removeProfilePicture
+);
 
 // router.post(
 //   "/enable-2fa",

@@ -19,7 +19,7 @@ const uploadFileToCloudinary = (file) => {
 
     const uploadOptions = {
       resource_type: resourceType,
-      folder: "library/uploads",
+      folder: "library",
       use_filename: true,
       unique_filename: true,
       format: isDocx ? "docx" : undefined,

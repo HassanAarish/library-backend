@@ -1,5 +1,15 @@
 import mongoose from "mongoose";
 
+const AddressSchema = new mongoose.Schema({
+  street: { type: String, required: true },
+  city: { type: String, required: true },
+  state: { type: String },
+  zip: { type: String },
+  country: { type: String, required: true },
+  isDefault: { type: Boolean, default: false },
+  label: { type: String, default: "Home" },
+});
+
 const PreferencesSchema = new mongoose.Schema(
   {
     userId: {
@@ -28,8 +38,19 @@ const PreferencesSchema = new mongoose.Schema(
     bio: {
       type: String,
     },
-    billingAddress: {},
-    shippingAddress: {},
+    dob: {
+      type: Date,
+    },
+    gender: {
+      type: String,
+      enum: ["male", "female", "other", "prefer not to say"],
+    },
+    notifications: {
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true },
+      sms: { type: Boolean, default: false },
+    },
+    addresses: [AddressSchema],
   },
   { timestamps: true }
 );

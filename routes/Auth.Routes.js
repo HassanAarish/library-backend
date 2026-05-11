@@ -12,13 +12,9 @@ router.post("/login", inTransaction, authController.login);
 
 // router.post("/verify-login", inTransaction, authController.verifyTwoFactorAuth);
 
-// router.post("/forgot-password", inTransaction, authController.forgotPassword);
+router.post("/forgot-password", inTransaction, authController.forgotPassword);
 
-// router.post(
-//   "/reset-password/:token",
-//   inTransaction,
-//   authController.resetPassword
-// );
+router.post("/reset-password", inTransaction, authController.resetPassword);
 
 // router.post("/admin-register", inTransaction, authController.adminRegister);
 

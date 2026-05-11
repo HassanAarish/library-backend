@@ -62,7 +62,7 @@ export const login = asyncHandler(async (req, res) => {
   });
 });
 
-// export const verifyTwoFactorAuth = asyncHandler(async (req, res, next) => {
+// export const verifyTwoFactorAuth = asyncHandler(async (req, res) => {
 //   try {
 //     const { userId, otp } = req.body;
 
@@ -111,68 +111,37 @@ export const login = asyncHandler(async (req, res) => {
 
 // Password Reset Controller
 
-// export const forgotPassword = asyncHandler(async (req, res, next) => {
-//   const { email } = req.body;
-//   try {
-//     const user = await User.findOne({ email });
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const session = req.transaction;
 
-//     if (!user) {
-//       return next(new ErrorResponse("User not found", 404));
-//     }
+  helper.checkMandatoryFields(req.body, ["email"]);
 
-//     const resetToken = crypto.randomBytes(20).toString("hex");
-//     user.resetPasswordToken = resetToken;
-//     user.resetPasswordTokenExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
-//     await user.save();
-//     const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
-//     console.log("resetUrl", resetUrl);
+  await authService.forgotPassword(req.body, session);
 
-//     const resetEmail = await passwordResetEmail(email, resetUrl);
+  return res.status(201).json({
+    success: true,
+    message: "Password reset email sent to your email.",
+  });
+});
 
-//     if (resetEmail instanceof Error) {
-//       return next(new ErrorResponse("Error sending password reset email", 500));
-//     }
+export const resetPassword = asyncHandler(async (req, res) => {
+  const session = req.transaction;
 
-//     return res.status(201).json({
-//       success: true,
-//       message: "Password reset email sent",
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     return next(error);
-//   }
-// });
+  const fields = { ...req.query, ...req.body };
 
-// export const resetPassword = asyncHandler(async (req, res, next) => {
-//   const { token } = req.params;
-//   const { password } = req.body;
-//   try {
-//     const user = await User.findOne({
-//       resetPasswordToken: token,
-//       resetPasswordTokenExpiry: { $gt: Date.now() },
-//     });
+  helper.checkMandatoryFields(fields, ["token", "password"]);
 
-//     if (!user) {
-//       return next(new ErrorResponse("Invalid or Expired Link", 400));
-//     }
+  await authService.resetPassword(fields, session);
 
-//     const hashPassword = await bcrypt.hash(password, 10);
-//     user.password = hashPassword;
-//     user.resetPasswordToken = undefined;
-//     user.resetPasswordTokenExpiry = undefined;
-//     await user.save();
-//     res.status(200).json({
-//       success: true,
-//       message: "Password reset successful",
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// });
+  return res.status(200).json({
+    success: true,
+    message: "Password reset successfully. Please login to continue.",
+  });
+});
 
 // Instructor Registration
 
-// export const adminRegister = asyncHandler(async (req, res, next) => {
+// export const adminRegister = asyncHandler(async (req, res) => {
 //   const { name, email, password, authType } = req.body;
 
 //   const session = await connection.startSession();
@@ -272,10 +241,9 @@ export const login = asyncHandler(async (req, res) => {
 // If user lost authentication app these endpoints will be applied.
 
 // User will receive a verification email with otp to reset the password
-// export const removeTwoFactor = asyncHandler(async (req, res, next) => {
+// export const removeTwoFactor = asyncHandler(async (req, res) => {
 //   const { userId } = req.params;
 
-//   try {
 //     const user = await User.findById(userId);
 //     console.log("🚀 ~ user:", user);
 //     if (!user) {
@@ -305,7 +273,7 @@ export const login = asyncHandler(async (req, res) => {
 
 // User will then verify the otp to remove the authentication from the authenticator app
 // export const verifyOtpAndRemoveTwoFactor = asyncHandler(
-//   async (req, res, next) => {
+//   async (req, res) => {
 //     const { userId } = req.params;
 //     const { otp } = req.body;
 
