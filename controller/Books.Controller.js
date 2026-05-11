@@ -1,6 +1,6 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
 import ErrorResponse from "../utils/errorResponse.js";
-import Book from "../models/Books.Model.js";
+import Book from "../models/Book.Model.js";
 
 export const getAllbooks = asyncHandler(async (req, res, next) => {
   try {

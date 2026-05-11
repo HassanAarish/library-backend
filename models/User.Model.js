@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
-const userSchema = new mongoose.Schema(
+const UserSchema = new mongoose.Schema(
   {
     name: {
       type: String,
@@ -9,11 +10,6 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      unique: true,
-      match: [/.+\@.+\..+/, "Please fill a valid email address"],
-    },
-    alternativeEmail: {
-      type: String,
       unique: true,
       match: [/.+\@.+\..+/, "Please fill a valid email address"],
     },
@@ -45,47 +41,53 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    phoneNumber: {
-      type: String,
-    },
-    twoFactorAuthentication: {
-      type: Boolean,
-      default: false,
-    },
-    twoFactorSecret: {
-      type: String,
+    twoFactor: {
+      enabled: { type: Boolean, default: false },
+      secret: { type: String },
     },
     otp: {
-      code: {
-        type: Number,
-      },
-      expiry: {
-        type: Date,
-      },
+      code: { type: Number },
+      expiry: { type: Date },
     },
     role: {
       type: String,
       enum: ["admin", "user"],
       default: "user",
     },
-    resetPasswordToken: {
-      type: String,
-    },
-    resetPasswordTokenExpiry: {
-      type: Date,
-    },
-    profilePicture: {
-      url: {
-        type: String,
-      },
-      public_id: {
-        type: String,
-      },
+    resetPassword: {
+      token: { type: String },
+      expry: { type: Date },
     },
   },
   { timestamps: true }
 );
 
-const User = mongoose.model("User", userSchema);
+/**
+ * Pre-save Hook: Hashes password before saving to DB
+ */
+UserSchema.pre("save", async function (next) {
+  // Only hash the password if it has been modified (or is new)
+  if (!this.isModified("password") || !this.password) {
+    return next();
+  }
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Instance Method: Compare entered password with hashed password
+ * We use 'this.password' which is available after a .select("+password") query
+ */
+UserSchema.methods.comparePassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
+const User = mongoose.model("User", UserSchema);
 
 export default User;

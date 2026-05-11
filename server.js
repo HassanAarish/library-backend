@@ -4,12 +4,15 @@ import cors from "cors";
 import path from "path";
 import dotenv from "dotenv";
 import errorHandler from "./middlewares/errorHandler.js";
-import router from "./routes/indexRoute.js";
+import router from "./routes/indexRoutes.js";
 import { connectDB } from "./config/db.js";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
-import "./cron/userCleanUp.cron.js";
+import "./cron/index.js";
 import setupMorganLogger from "./config/morgan.js";
+import { getEnv } from "./config/dotenv.js";
+
+const PORT = getEnv("PORT");
 
 const app = express();
 
@@ -18,6 +21,7 @@ setupMorganLogger();
 dotenv.config();
 
 connectDB();
+
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -39,5 +43,9 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(router);
 
 app.use(errorHandler);
+
+app.listen(PORT, () => {
+  console.log(`🚀 ~ Server running on port ${PORT}`);
+});
 
 export default app;

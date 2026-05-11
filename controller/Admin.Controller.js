@@ -1,16 +1,16 @@
-import Book from "../models/Books.Model.js";
+import Book from "../models/Book.Model.js";
 import User from "../models/User.Model.js";
 import asyncHandler from "../middlewares/asyncHandler.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import Order from "../models/Order.Model.js";
 import dotenv from "dotenv";
-import Stripe from "stripe";
+// import Stripe from "stripe";
 
-const stripe =
-  new Stripe(process.env.STRIPE_SECRET_KEY) ||
-  new Stripe(
-    "sk_test_51Q0o7LJptLTFCZSKQyvnjsLxsB1WODmOJ81FDgMZs4hfJyNqUCsMve6VEi5FprMlgxWITlkKdFIzNpfIdYStTOiS00oHLfm9HV"
-  );
+// const stripe =
+//   new Stripe(process.env.STRIPE_SECRET_KEY) ||
+//   new Stripe(
+//     "sk_test_51Q0o7LJptLTFCZSKQyvnjsLxsB1WODmOJ81FDgMZs4hfJyNqUCsMve6VEi5FprMlgxWITlkKdFIzNpfIdYStTOiS00oHLfm9HV"
+//   );
 
 dotenv.config();
 
@@ -131,45 +131,45 @@ export const getAllUserProfiles = asyncHandler(async (req, res, next) => {
   }
 });
 
-export const refundPayment = asyncHandler(async (req, res, next) => {
-  const { paymentIntentId, priceToRefund, orderId } = req.body;
+// export const refundPayment = asyncHandler(async (req, res, next) => {
+//   const { paymentIntentId, priceToRefund, orderId } = req.body;
 
-  try {
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return next(new ErrorResponse("Order not found", 404));
-    }
+//   try {
+//     const order = await Order.findById(orderId);
+//     if (!order) {
+//       return next(new ErrorResponse("Order not found", 404));
+//     }
 
-    const refundAmountInCents = Math.round(priceToRefund * 100);
+//     const refundAmountInCents = Math.round(priceToRefund * 100);
 
-    const maxRefundableAmount =
-      order.totalPrice * 100 - (order.paymentResult.refundedAmount || 0) * 100;
-    if (refundAmountInCents > maxRefundableAmount) {
-      return next(
-        new ErrorResponse("Refund amount exceeds allowable limit", 400)
-      );
-    }
+//     const maxRefundableAmount =
+//       order.totalPrice * 100 - (order.paymentResult.refundedAmount || 0) * 100;
+//     if (refundAmountInCents > maxRefundableAmount) {
+//       return next(
+//         new ErrorResponse("Refund amount exceeds allowable limit", 400)
+//       );
+//     }
 
-    const paymentIntent = await stripe.refunds.create({
-      payment_intent: paymentIntentId,
-      amount: refundAmountInCents,
-    });
+//     const paymentIntent = await stripe.refunds.create({
+//       payment_intent: paymentIntentId,
+//       amount: refundAmountInCents,
+//     });
 
-    order.paymentResult.isRefunded = true;
-    order.paymentResult.refundedAmount =
-      (order.paymentResult.refundedAmount || 0) + priceToRefund;
-    order.isRefunded = true;
-    await order.save();
+//     order.paymentResult.isRefunded = true;
+//     order.paymentResult.refundedAmount =
+//       (order.paymentResult.refundedAmount || 0) + priceToRefund;
+//     order.isRefunded = true;
+//     await order.save();
 
-    return res.status(200).json({
-      success: true,
-      data: { paymentIntent, order },
-    });
-  } catch (error) {
-    console.error("Error processing refund:", error);
-    return next(new ErrorResponse("Refund processing failed", 500));
-  }
-});
+//     return res.status(200).json({
+//       success: true,
+//       data: { paymentIntent, order },
+//     });
+//   } catch (error) {
+//     console.error("Error processing refund:", error);
+//     return next(new ErrorResponse("Refund processing failed", 500));
+//   }
+// });
 
 export const weeklyTopPackage = asyncHandler(async (req, res, next) => {
   try {

@@ -1,14 +1,28 @@
 import express from "express";
-import adminRoute from "./adminRoute.js";
-import userRoute from "./userRoute.js";
-import authRoute from "./authRoute.js";
-import shopRoute from "./shopRoute.js";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const router = express.Router();
 
-router.use("/user", userRoute);
-router.use("/admin", adminRoute);
-router.use("/auth", authRoute);
-router.use("/shop", shopRoute);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const routeFiles = fs
+  .readdirSync(__dirname)
+  .filter((file) => file.endsWith(".Routes.js") && file !== "indexRoutes.js");
+
+for (const file of routeFiles) {
+  const module = await import(`./${file}`);
+  const routes = module?.default;
+
+  if (!routes) {
+    continue;
+  }
+
+  const baseName = file.replace(/\.Routes\.js$/i, "");
+  const mountPath = `/${baseName.toLowerCase()}`;
+  router.use(mountPath, routes);
+}
 
 export default router;
