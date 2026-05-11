@@ -13,6 +13,7 @@ import setupMorganLogger from "./config/morgan.js";
 import { getEnv } from "./config/dotenv.js";
 
 const PORT = getEnv("PORT");
+const NODE_ENV = getEnv("NODE_ENV");
 
 const app = express();
 
@@ -40,12 +41,21 @@ app.use(express.json({ limit: "50mb" }));
 
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+router.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    port: PORT,
+    mode: NODE_ENV,
+    message: "Server is up and running",
+  });
+});
+
 app.use(router);
 
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`🚀 ~ Server running on port ${PORT}`);
+  console.log(`🚀 ~ Server running in ${NODE_ENV} mode on port ${PORT}`);
 });
 
 export default app;

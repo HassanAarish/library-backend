@@ -4,7 +4,7 @@ import * as authService from "../services/Auth.Service.js";
 
 // Registration Controllers
 
-export const register = asyncHandler(async (req, res, next) => {
+export const register = asyncHandler(async (req, res) => {
   const session = req.transaction;
 
   // Your new mandatory fields check (assuming you call it via middleware or here)
@@ -23,7 +23,7 @@ export const register = asyncHandler(async (req, res, next) => {
   });
 });
 
-export const verifyOtp = asyncHandler(async (req, res, next) => {
+export const verifyOtp = asyncHandler(async (req, res) => {
   const session = req.transaction;
 
   // Your new mandatory fields check (assuming you call it via middleware or here)
@@ -39,7 +39,7 @@ export const verifyOtp = asyncHandler(async (req, res, next) => {
 
 // Login Controller with 2FA enabled/disabled
 
-export const login = asyncHandler(async (req, res, next) => {
+export const login = asyncHandler(async (req, res) => {
   const session = req.transaction;
 
   helper.checkMandatoryFields(req.body, ["email", "password", "authType"]);

@@ -3,23 +3,16 @@ import bcrypt from "bcryptjs";
 import cloudinary from "cloudinary";
 import asyncHandler from "../middlewares/asyncHandler.js";
 import ErrorResponse from "../utils/errorResponse.js";
+import * as userServie from "../services/User.Service.js";
 
 // get User's profile
-export const getUserProfile = asyncHandler(async (req, res, next) => {
-  try {
-    const user = await User.findById(req.userID).select("-password");
-
-    if (!user) {
-      return next(new ErrorResponse("User not found", 404));
-    }
-
-    return res.status(201).json({
-      success: true,
-      data: user,
-    });
-  } catch (error) {
-    return next(error);
-  }
+export const getUserProfile = asyncHandler(async (req, res) => {
+  const user = await userServie.getUserProfile(req.userID);
+  return res.status(201).json({
+    success: true,
+    message: "User fetched successfully.",
+    data: user,
+  });
 });
 
 // Update user's profile.

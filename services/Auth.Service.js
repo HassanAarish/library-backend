@@ -1,6 +1,8 @@
+import Preferences from "../models/Preferences.Model.js";
 import User from "../models/User.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import { generateToken } from "../utils/generateTokens.js";
+import helper from "../utils/helper.js";
 
 function generateOTP() {
   const uniqueNumber = Math.floor(100000 + Math.random() * 900000);
@@ -8,7 +10,7 @@ function generateOTP() {
 }
 
 export const register = async (body, session = null) => {
-  const { name, email, password, authType } = body;
+  const { name, email, password, profilePicture, authType } = body;
 
   if (authType === "email") {
     // 1. Check if user exists (Pass the session!)
@@ -25,7 +27,7 @@ export const register = async (body, session = null) => {
     // 3. Create user
     const user = new User({
       name,
-      email,
+      email: helper.lowercaseEmail(email),
       password,
       authType,
       otp: { code: otp, expiry: expiry },
@@ -34,16 +36,22 @@ export const register = async (body, session = null) => {
     console.log("otp", otp);
     await user.save({ session });
 
+    // 4. Create User Preferences
+    // We link it via user._id and save the profilePicture object from Cloudinary
+    const preferences = new Preferences({
+      userId: user._id,
+      profilePicture: profilePicture || {}, // Save the {name, url, public_id} object
+    });
+
+    await preferences.save({ session });
+
     // Send OTP to user's email
     // const info = await sendOtp(email, otp);
     // if (info instanceof Error) {
     //   return next(new ErrorResponse("Error sending OTP", 500));
     // }
 
-    return res.status(201).json({
-      success: true,
-      message: "Registration successful. Please verify your email.",
-    });
+    return true;
   }
 
   // Redirect to Google or Facebook for social login

@@ -1,30 +1,17 @@
 import express from "express";
+import * as userController from "../controller/User.Controller.js";
 import verifyToken from "../middlewares/verifyToken.js";
-// import {
-//   addOrUpdateProfilePicture,
-//   disableTwoFactorAuth,
-//   enableTwoFactorAuth,
-//   getUserProfile,
-//   removeProfilePicture,
-//   updatePassword,
-//   updateProfile,
-// } from "../controller/User.Controller.js";
 import verifyRole from "../middlewares/verifyRole.js";
 
 const router = express.Router();
+
+router.get("/profile", verifyToken, userController.getUserProfile);
 
 // router.put(
 //   "/update-password",
 //   verifyToken,
 //   verifyRole("user", "admin"),
 //   updatePassword
-// );
-
-// router.get(
-//   "/profile",
-//   verifyToken,
-//   verifyRole("user", "admin"),
-//   getUserProfile
 // );
 
 // router.put(

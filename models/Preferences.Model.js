@@ -15,6 +15,9 @@ const PreferencesSchema = new mongoose.Schema(
       type: String,
     },
     profilePicture: {
+      name: {
+        type: String,
+      },
       url: {
         type: String,
       },
