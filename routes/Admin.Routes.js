@@ -1,36 +1,31 @@
 import express from "express";
 import verifyToken from "../middlewares/verifyToken.js";
 import verifyRole from "../middlewares/verifyRole.js";
-// import * as adminController from "../controller/Admin.Controller.js";
+import * as adminController from "../controller/Admin.Controller.js";
+import { inTransaction } from "../middlewares/transaction.js";
 
 const router = express.Router();
 
-// router.post(
-//   "/add-new-book",
-//   verifyToken,
-//   verifyRole("admin"),
-//   adminController.addBook
-// );
+router.get(
+  "/users",
+  verifyToken,
+  verifyRole("admin"),
+  adminController.getUserLists
+);
 
-// router.get(
-//   "/all-users",
-//   verifyToken,
-//   verifyRole("admin"),
-//   adminController.getAllUserProfiles
-// );
+router.get(
+  "/user/:userId",
+  verifyToken,
+  verifyRole("admin"),
+  adminController.getUserData
+);
 
-// router.put(
-//   "/:bookId",
-//   verifyToken,
-//   verifyRole("admin"),
-//   adminController.updateBook
-// );
-
-// router.delete(
-//   "/:bookId",
-//   verifyToken,
-//   verifyRole("admin"),
-//   adminController.deleteBook
-// );
+router.patch(
+  "/toggle-user-block/:userId",
+  verifyToken,
+  verifyRole("admin"),
+  inTransaction,
+  adminController.toggleUserBlock
+);
 
 export default router;

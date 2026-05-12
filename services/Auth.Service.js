@@ -11,7 +11,7 @@ function generateOTP() {
 }
 
 export const register = async (body, session = null) => {
-  const { name, email, password, profilePicture, authType } = body;
+  const { name, email, password, profilePicture, role, authType } = body;
 
   if (authType === "email") {
     // 1. Check if user exists (Pass the session!)
@@ -31,6 +31,7 @@ export const register = async (body, session = null) => {
       email: helper.lowercaseEmail(email),
       password,
       authType,
+      role: role || "user",
       otp: { code: otp, expiry: expiry },
       isVerified: false,
     });
@@ -105,6 +106,13 @@ export const login = async (body, session = null) => {
 
   if (!user) {
     throw new ErrorResponse("Invalid credentials", 401);
+  }
+
+  if (user.isBlocked) {
+    throw new ErrorResponse(
+      "Your account has been suspended. Please contact support.",
+      403
+    );
   }
 
   // 2. Logic for Email Login

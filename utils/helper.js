@@ -1,25 +1,5 @@
 import ErrorResponse from "./errorResponse.js";
 
-const assertBoolean = (value, field) => {
-  if (typeof value !== "boolean") {
-    throw new ErrorResponse(`${field} must be a boolean value`, 400);
-  }
-};
-
-const assertNonEmptyString = (value, fieldName) => {
-  if (value === undefined || value === null) {
-    throw new ErrorResponse(`${fieldName} is required`, 400);
-  }
-
-  if (typeof value !== "string") {
-    throw new ErrorResponse(`${fieldName} must be a string`, 400);
-  }
-
-  if (value.trim().length === 0) {
-    throw new ErrorResponse(`${fieldName} cannot be empty`, 400);
-  }
-};
-
 /**
  * Checks whether all required fields are present and valid.
  *
@@ -66,9 +46,76 @@ const lowercaseEmail = (email) => {
   return email.trim().toLowerCase();
 };
 
+/**
+ * Generic Pagination Helper for Mongoose models.
+ * @param {mongoose.Model} model - The Mongoose model to query
+ * @param {Object} req - The Express request object
+ * @param {Object} options - Configuration for populate, select, and sort
+ */
+const paginate = async (model, req, options = {}) => {
+  const {
+    populate,
+    select,
+    sort = { createdAt: -1 },
+    searchFields = [],
+  } = options;
+
+  // 1. Parse Page and Limit
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  // 2. Extract and separate Search from Filters
+  const queryObj = { ...req.query };
+  const excludedFields = ["page", "limit", "sort", "fields", "search"];
+  excludedFields.forEach((el) => delete queryObj[el]);
+
+  // 3. Handle Global Search (Regex)
+  let filters = { ...queryObj };
+
+  if (req.query.search && searchFields?.length > 0) {
+    filters.$or = searchFields.map((field) => ({
+      [field]: { $regex: req.query.search, $options: "i" }, // "i" for case-insensitive
+    }));
+  }
+
+  // 4. Build Query
+  let query = model.find(filters);
+
+  // Apply Sorting
+  if (sort) {
+    query = query.sort(sort);
+  }
+
+  // Apply Select (Field limiting)
+  if (select) {
+    query = query.select(select);
+  }
+
+  // Apply Populate (Important for Category/User refs)
+  if (populate) {
+    query = query.populate(populate);
+  }
+
+  // 4. Execute Query and Count in parallel for performance
+  const [results, totalDocs] = await Promise.all([
+    query.skip(skip).limit(limit).lean(), // .lean() for faster read-only queries
+    model.countDocuments(filters),
+  ]);
+
+  return {
+    totalDocs,
+    page,
+    limit,
+    totalPages: Math.ceil(totalDocs / limit),
+    hasNextPage: page * limit < totalDocs,
+    hasPrevPage: page > 1,
+    results,
+  };
+};
+
 export default {
-  assertBoolean,
-  assertNonEmptyString,
   checkMandatoryFields,
   lowercaseEmail,
+  paginate,
 };

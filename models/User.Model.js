@@ -58,6 +58,10 @@ const UserSchema = new mongoose.Schema(
       token: { type: String },
       expiry: { type: Date },
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

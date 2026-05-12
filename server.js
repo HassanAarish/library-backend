@@ -32,7 +32,7 @@ cloudinary.v2.config({
 app.use(
   cors({
     // 1. Specify your exact frontend URL (no trailing slash)
-    origin: "http://localhost:5174",
+    origin: "http://localhost:5173",
 
     // 2. Allow cookies/authorization headers to be sent
     credentials: true,
