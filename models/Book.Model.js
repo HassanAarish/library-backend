@@ -23,6 +23,7 @@ const BookSchema = new mongoose.Schema(
       format: { type: String }, // pdf, docx, etc.
     },
     coverImage: {
+      name: { type: String },
       url: { type: String },
       public_id: { type: String },
     },
