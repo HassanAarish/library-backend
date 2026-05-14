@@ -40,6 +40,9 @@ const RentalSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    duration: {
+      type: Number,
+    },
     expiryDate: {
       type: Date,
       required: true, // You can set this to +7 days or +1 month from rentalDate

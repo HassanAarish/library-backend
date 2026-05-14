@@ -17,21 +17,18 @@ export const createBookRequest = asyncHandler(async (req, res) => {
   ];
   helper.checkMandatoryFields(req.body, required);
 
-  const book = await bookService.createBookRequest(
-    req.body,
-    req.userID,
-    session
-  );
+  await bookService.createBookRequest(req.body, req.userID, session);
 
   return res.status(201).json({
     success: true,
     message: "Book uploaded and sent for admin approval.",
-    data: book,
   });
 });
 
 export const getMyBooks = asyncHandler(async (req, res) => {
-  const result = await bookService.getMyBooks(req);
+  const userId = req.userID;
+  const newReq = { ...req, query: { ...req.query, uploader: userId } };
+  const result = await bookService.getMyBooks(newReq);
 
   return res.status(200).json({
     success: true,
@@ -40,7 +37,12 @@ export const getMyBooks = asyncHandler(async (req, res) => {
 });
 
 export const getAllBooks = asyncHandler(async (req, res) => {
-  const result = await bookService.getAllBooks(req);
+  const newReq = {
+    ...req,
+    query: { ...req.query, status: "approved", isAvailable: true },
+  };
+
+  const result = await bookService.getAllBooks(newReq);
 
   return res.status(200).json({
     success: true,
@@ -50,23 +52,19 @@ export const getAllBooks = asyncHandler(async (req, res) => {
 
 export const reviewBook = asyncHandler(async (req, res) => {
   const { bookId } = req.params;
-  const { status, rejectionReason } = req.body;
+  const { status } = req.body;
   const session = req.transaction;
+
+  helper.checkMandatoryFields(req.body, ["status"]);
 
   if (!["approved", "rejected"].includes(status)) {
     throw new ErrorResponse("Invalid status update.", 400);
   }
 
-  const book = await bookService.reviewBook(
-    bookId,
-    status,
-    rejectionReason,
-    session
-  );
+  await bookService.reviewBook(bookId, req.body, session);
 
   return res.status(200).json({
     success: true,
     message: `Book has been ${status}.`,
-    data: book,
   });
 });

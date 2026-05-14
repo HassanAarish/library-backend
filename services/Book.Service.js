@@ -1,6 +1,7 @@
 import Book from "../models/Book.Model.js";
 import Category from "../models/Category.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
+import helper from "../utils/helper.js";
 
 export const createBookRequest = async (bookData, userId, session = null) => {
   const { categoryId } = bookData;
@@ -23,9 +24,6 @@ export const createBookRequest = async (bookData, userId, session = null) => {
 };
 
 export const getMyBooks = async (req) => {
-  // Force the filter to only show books belonging to the logged-in user
-  // req.query.uploader = req.userID;
-
   const options = {
     sort: { createdAt: -1 },
     searchFields: ["title"],
@@ -45,22 +43,12 @@ export const getAllBooks = async (req) => {
     ],
   };
 
-  // If the requester is NOT an admin, we force strict visibility filters
-  // if (req.role !== "admin") {
-  //   req.query.status = "approved";
-  //   req.query.isAvailable = true;
-  // }
-
   // Use your generic helper to handle pagination, searching, and filtering
   return await helper.paginate(Book, req, options);
 };
 
-export const reviewBook = async (
-  bookId,
-  status,
-  reason = "",
-  session = null
-) => {
+export const reviewBook = async (bookId, body, session = null) => {
+  const { status, reason = "" } = body;
   const book = await Book.findById(bookId).session(session);
   if (!book) throw new ErrorResponse("Book not found", 404);
 
