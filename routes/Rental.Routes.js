@@ -5,11 +5,6 @@ import verifyToken from "../middlewares/verifyToken.js";
 
 const router = express.Router();
 
-router.post(
-  "/",
-  verifyToken,
-  inTransaction,
-  rentalController.createRentalBooking
-);
+router.post("/", verifyToken, inTransaction, rentalController.createRentalBooking);
 
 export default router;

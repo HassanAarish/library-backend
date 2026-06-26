@@ -6,9 +6,7 @@ import ErrorResponse from "../utils/errorResponse.js";
 export const createRentalBooking = async (body, session = null) => {
   const { bookId, renterId, amountPaid, paymentIntentId, durationDays } = body;
 
-  const book = await Book.findOne({ _id: bookId, status: "approved" }).session(
-    session
-  );
+  const book = await Book.findOne({ _id: bookId, status: "approved" }).session(session);
 
   if (!book) throw new ErrorResponse("Book not found", 404);
 

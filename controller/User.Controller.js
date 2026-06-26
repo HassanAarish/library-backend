@@ -1,8 +1,4 @@
-import User from "../models/User.Model.js";
-import bcrypt from "bcryptjs";
-import cloudinary from "cloudinary";
 import asyncHandler from "../middlewares/asyncHandler.js";
-import ErrorResponse from "../utils/errorResponse.js";
 import * as userService from "../services/User.Service.js";
 import helper from "../utils/helper.js";
 
@@ -77,111 +73,12 @@ export const removeProfilePicture = asyncHandler(async (req, res) => {
   });
 });
 
-// Controller to enable 2FA and generate a QR code
-
-const generateBase32Secret = () => {
-  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let secret = "";
-  try {
-    for (let i = 0; i < 32; i++) {
-      const randomIndex = Math.floor(Math.random() * charset.length);
-      secret += charset[randomIndex];
-    }
-  } catch (error) {
-    return error;
-  }
-  return secret;
-};
-
-export const enableTwoFactorAuth = asyncHandler(async (req, res, next) => {
-  const userId = req.userID;
-
-  try {
-    // Find the user by ID
-    const user = await User.findById(userId);
-    if (!user) {
-      return next(new ErrorResponse("User not found", 404));
-    }
-
-    // Generate a Base32 secret
-    const base32_secret = generateBase32Secret();
-
-    // Create TOTP instance
-    const totp = new OTPAuth.TOTP({
-      issuer: "EFTS",
-      label: user.email,
-      algorithm: "SHA1",
-      digits: 6,
-      period: 30,
-      secret: OTPAuth.Secret.fromBase32(base32_secret),
-    });
-
-    const otpauth_url = totp.toString();
-
-    // Generate QR code as base64
-    const qr_svg = qr.imageSync(otpauth_url, { type: "png" });
-    const qrCodeBase64 = `data:image/png;base64,${qr_svg.toString("base64")}`;
-
-    user.twoFactorSecret = base32_secret;
-    user.twoFactorAuthentication = true;
-    await user.save();
-
-    return res.status(200).json({
-      success: true,
-      message:
-        "QR code generated and 2FA enabled. Scan the QR code with your app.",
-      qrCodeUrl: qrCodeBase64,
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// Controller to disable 2FA from the account
-
-export const disableTwoFactorAuth = asyncHandler(async (req, res, next) => {
-  const userId = req.userID;
-  const { otp } = req.body;
-
-  try {
-    const user = await User.findById(userId);
-    if (!user) {
-      return next(new ErrorResponse("User not found", 404));
-    }
-
-    if (!user.twoFactorAuthentication || !user.twoFactorSecret) {
-      return next(
-        new ErrorResponse("2FA is not enabled for this account", 400)
-      );
-    }
-
-    // Create TOTP instance with the user's secret for validation
-    const totp = new OTPAuth.TOTP({
-      issuer: "EFTS",
-      label: user.email,
-      algorithm: "SHA1",
-      digits: 6,
-      period: 30,
-      secret: OTPAuth.Secret.fromBase32(user.twoFactorSecret),
-    });
-
-    // Adjust the window to account for time drift
-    const validOTP = totp.validate({ token: otp, window: 0 });
-
-    if (validOTP === null) {
-      return next(new ErrorResponse("Invalid 2FA code", 401));
-    }
-
-    // Clear the secret and disable 2FA
-    user.twoFactorSecret = undefined;
-    user.twoFactorAuthentication = false;
-    await user.save();
-
-    return res.status(200).json({
-      success: true,
-      message: `Two-factor authentication has been turned off. Please remove the old entry from your authenticator app. If you turn 2FA back on, you’ll scan a new QR code.`,
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
+/*
+ * 2FA (TOTP) controllers — disabled. The routes in User.Routes.js are commented
+ * out and this code depends on packages that are not installed (`otpauth` for
+ * `OTPAuth`, `qr-image` for `qr`). To re-enable: install those packages, import
+ * them here, and uncomment both this block and the matching routes.
+ *
+ * export const enableTwoFactorAuth = asyncHandler(async (req, res, next) => { ... });
+ * export const disableTwoFactorAuth = asyncHandler(async (req, res, next) => { ... });
+ */

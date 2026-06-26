@@ -11,10 +11,7 @@ export const createCategory = asyncHandler(async (req, res) => {
 
   return res.status(201).json({
     success: true,
-    message:
-      req.role === "admin"
-        ? "Category created."
-        : "Category requested successfully.",
+    message: req.role === "admin" ? "Category created." : "Category requested successfully.",
   });
 });
 
@@ -29,11 +26,7 @@ export const getCategories = asyncHandler(async (req, res) => {
 
 export const updateCategory = asyncHandler(async (req, res) => {
   const session = req.transaction;
-  const result = await categoryService.updateCategory(
-    req.params.categoryId,
-    req.body,
-    session
-  );
+  const result = await categoryService.updateCategory(req.params.categoryId, req.body, session);
 
   return res.status(200).json({
     success: true,

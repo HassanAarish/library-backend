@@ -59,11 +59,7 @@ export const reviewBook = async (bookId, body, session = null) => {
 
   // If approved, we increment the category's book count
   if (status === "approved") {
-    await Category.findByIdAndUpdate(
-      book.category,
-      { $inc: { bookCount: 1 } },
-      { session }
-    );
+    await Category.findByIdAndUpdate(book.category, { $inc: { bookCount: 1 } }, { session });
   }
 
   return await book.save({ session });

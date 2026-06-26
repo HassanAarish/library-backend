@@ -4,7 +4,9 @@ import ErrorResponse from "../utils/errorResponse.js";
 import { v2 as cloudinary } from "cloudinary";
 
 export const getUserProfile = async (userId) => {
-  const user = await User.findById(userId).select("-password");
+  const user = await User.findById(userId).select(
+    "-password -twoFactor.secret -otp -resetPassword",
+  );
 
   if (!user) {
     throw new ErrorResponse("User not found", 404);
@@ -26,7 +28,7 @@ export const updateProfile = async (body, session = null) => {
     await User.findByIdAndUpdate(userId, { name }, { session });
   }
 
-  const updatedPrefs = await Preferences.findOneAndUpdate(
+  await Preferences.findOneAndUpdate(
     { userId },
     { $set: prefData },
     {
@@ -34,7 +36,7 @@ export const updateProfile = async (body, session = null) => {
       runValidators: true,
       session,
       upsert: true, // Creates the doc if it doesn't exist yet
-    }
+    },
   );
 
   return true;
@@ -53,19 +55,13 @@ export const updatePassword = async (userId, body, session = null) => {
   // 2. Verify current password
   const isMatch = await user.comparePassword(currentPassword);
   if (!isMatch) {
-    throw new ErrorResponse(
-      "The current password you entered is incorrect.",
-      401
-    );
+    throw new ErrorResponse("The current password you entered is incorrect.", 401);
   }
 
   // 3. Prevent using the same password
   const isSamePassword = await user.comparePassword(newPassword);
   if (isSamePassword) {
-    throw new ErrorResponse(
-      "New password cannot be the same as the current password.",
-      400
-    );
+    throw new ErrorResponse("New password cannot be the same as the current password.", 400);
   }
 
   // 4. Update password
@@ -117,7 +113,7 @@ export const removeProfilePicture = async (userId, session = null) => {
   if (!preferences || !preferences.profilePicture?.public_id) {
     throw new ErrorResponse(
       "No profile picture found to remove or it has already been removed.",
-      400
+      400,
     );
   }
 

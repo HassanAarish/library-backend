@@ -35,7 +35,7 @@ const BookSchema = new mongoose.Schema(
     rejectionReason: { type: String },
     isAvailable: { type: Boolean, default: true }, // To temporarily hide books
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Indexing for search optimization

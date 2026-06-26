@@ -19,7 +19,10 @@ const PreferencesSchema = new mongoose.Schema(
     alternativeEmail: {
       type: String,
       unique: true,
-      match: [/.+\@.+\..+/, "Please fill a valid email address"],
+      // sparse: only enforce uniqueness on docs that actually set this field,
+      // so the many users who never provide an alt email don't collide on null.
+      sparse: true,
+      match: [/.+@.+\..+/, "Please fill a valid email address"],
     },
     phoneNumber: {
       type: String,
@@ -52,7 +55,7 @@ const PreferencesSchema = new mongoose.Schema(
     },
     addresses: [AddressSchema],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const Preferences = mongoose.model("Preferences", PreferencesSchema);

@@ -17,7 +17,7 @@ router.patch(
   verifyToken,
   verifyRole("admin"),
   inTransaction,
-  bookController.reviewBook
+  bookController.reviewBook,
 );
 
 export default router;

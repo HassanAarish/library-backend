@@ -48,7 +48,7 @@ const RentalSchema = new mongoose.Schema(
       required: true, // You can set this to +7 days or +1 month from rentalDate
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 /**

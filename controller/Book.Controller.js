@@ -7,14 +7,7 @@ export const createBookRequest = asyncHandler(async (req, res) => {
   const session = req.transaction;
 
   // Mandatory fields check
-  const required = [
-    "title",
-    "author",
-    "price",
-    "categoryId",
-    "file",
-    "coverImage",
-  ];
+  const required = ["title", "author", "price", "categoryId", "file", "coverImage"];
   helper.checkMandatoryFields(req.body, required);
 
   await bookService.createBookRequest(req.body, req.userID, session);

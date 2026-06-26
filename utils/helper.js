@@ -27,7 +27,7 @@ const checkMandatoryFields = (fields, requiredFields) => {
   if (missingFields.length > 0) {
     throw new ErrorResponse(
       `${missingFields.join(", ")} ${missingFields.length > 1 ? "are" : "is"} required`,
-      400
+      400,
     );
   }
 };
@@ -53,12 +53,7 @@ const lowercaseEmail = (email) => {
  * @param {Object} options - Configuration for populate, select, and sort
  */
 const paginate = async (model, req, options = {}) => {
-  const {
-    populate,
-    select,
-    sort = { createdAt: -1 },
-    searchFields = [],
-  } = options;
+  const { populate, select, sort = { createdAt: -1 }, searchFields = [] } = options;
 
   // 1. Parse Page and Limit
   const page = parseInt(req.query.page) || 1;

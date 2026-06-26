@@ -1,6 +1,7 @@
 import Book from "../models/Book.Model.js";
 import Preferences from "../models/Preferences.Model.js";
 import User from "../models/User.Model.js";
+import ErrorResponse from "../utils/errorResponse.js";
 import helper from "../utils/helper.js";
 
 export const getUserLists = async (req) => {

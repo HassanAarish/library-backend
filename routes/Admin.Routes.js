@@ -6,26 +6,16 @@ import { inTransaction } from "../middlewares/transaction.js";
 
 const router = express.Router();
 
-router.get(
-  "/users",
-  verifyToken,
-  verifyRole("admin"),
-  adminController.getUserLists
-);
+router.get("/users", verifyToken, verifyRole("admin"), adminController.getUserLists);
 
-router.get(
-  "/user/:userId",
-  verifyToken,
-  verifyRole("admin"),
-  adminController.getUserData
-);
+router.get("/user/:userId", verifyToken, verifyRole("admin"), adminController.getUserData);
 
 router.patch(
   "/toggle-user-block/:userId",
   verifyToken,
   verifyRole("admin"),
   inTransaction,
-  adminController.toggleUserBlock
+  adminController.toggleUserBlock,
 );
 
 export default router;

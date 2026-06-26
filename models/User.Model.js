@@ -11,7 +11,7 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      match: [/.+\@.+\..+/, "Please fill a valid email address"],
+      match: [/.+@.+\..+/, "Please fill a valid email address"],
     },
     password: {
       type: String,
@@ -30,6 +30,11 @@ const UserSchema = new mongoose.Schema(
       sparse: true,
     },
     facebookId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    appleId: {
       type: String,
       unique: true,
       sparse: true,
@@ -63,7 +68,7 @@ const UserSchema = new mongoose.Schema(
       default: false,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 /**
@@ -75,12 +80,8 @@ UserSchema.pre("save", async function () {
     return;
   }
 
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-  } catch (err) {
-    throw err;
-  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 /**

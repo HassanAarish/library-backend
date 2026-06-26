@@ -1,24 +1,18 @@
 import ErrorResponse from "../utils/errorResponse.js";
 
-const verifyRole = (...roles) => {
-  try {
-    return async (req, res, next) => {
-      if (!req?.role) {
-        return next(new ErrorResponse("User role not found", 403));
-      }
+const verifyRole =
+  (...roles) =>
+  (req, res, next) => {
+    if (!req?.role) {
+      return next(new ErrorResponse("User role not found", 403));
+    }
 
-      // Check if the user's role is included in the roles passed to the middleware
-      const isAllowed = roles.includes(req.role);
+    // Check if the user's role is included in the roles passed to the middleware
+    if (!roles.includes(req.role)) {
+      return next(new ErrorResponse("Permission Denied", 403));
+    }
 
-      if (!isAllowed) {
-        return next(new ErrorResponse("Permission Denied", 403));
-      }
-
-      next();
-    };
-  } catch (error) {
-    return next(error);
-  }
-};
+    next();
+  };
 
 export default verifyRole;

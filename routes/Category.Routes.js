@@ -15,7 +15,7 @@ router.patch(
   verifyToken,
   verifyRole("admin"),
   inTransaction,
-  categoryController.updateCategory
+  categoryController.updateCategory,
 );
 
 router.delete(
@@ -23,7 +23,7 @@ router.delete(
   verifyToken,
   verifyRole("admin"),
   inTransaction,
-  categoryController.deleteCategory
+  categoryController.deleteCategory,
 );
 
 export default router;

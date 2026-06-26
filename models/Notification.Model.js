@@ -41,12 +41,12 @@ const NotificationSchema = new mongoose.Schema(
       serviceId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Services",
-      }
+      },
     },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const Notification = mongoose.model("Notification", NotificationSchema);

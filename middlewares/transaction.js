@@ -21,9 +21,7 @@ export const inTransaction = async (req, res, next) => {
         try {
           // Delete all uploaded files in the queue
           await Promise.all(
-            req.cloudinaryCleanupQueue?.map((id) =>
-              cloudinary.uploader.destroy(id)
-            )
+            req.cloudinaryCleanupQueue?.map((id) => cloudinary.uploader.destroy(id)),
           );
           console.log("✅ Cloudinary reversal complete.");
         } catch (err) {

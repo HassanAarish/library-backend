@@ -10,6 +10,9 @@ import { dirname } from "node:path";
 import "./cron/index.js";
 import setupMorganLogger from "./config/morgan.js";
 import { getEnv } from "./config/dotenv.js";
+import { globalLimiter } from "./middlewares/rateLimiter.js";
+import verifyToken from "./middlewares/verifyToken.js";
+import verifyRole from "./middlewares/verifyRole.js";
 
 const PORT = getEnv("PORT");
 const NODE_ENV = getEnv("NODE_ENV");
@@ -19,7 +22,11 @@ const CLOUDINARY_API_SECRET = getEnv("CLOUDINARY_API_SECRET");
 
 const app = express();
 
-setupMorganLogger();
+// Trust the first proxy (Render/Heroku/etc.) so req.ip reflects the real client
+// IP — required for accurate per-IP rate limiting.
+app.set("trust proxy", 1);
+
+setupMorganLogger(app);
 
 connectDB();
 
@@ -40,18 +47,29 @@ app.use(
     // 3. Optional: Specify allowed methods
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 
 const __filename = fileURLToPath(import.meta.url);
 
 const __dirname = dirname(__filename);
 
-app.use("/v1/logs", express.static(path.join(__dirname, "/logs")));
+// Serve the log files from where they're actually written (config/logs).
+// Admin-only: these files contain request metadata and user emails.
+app.use(
+  "/v1/logs",
+  verifyToken,
+  verifyRole("admin"),
+  express.static(path.join(__dirname, "config", "logs")),
+);
 
 app.use(express.json({ limit: "50mb" }));
 
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Loose global safety net (200 req/min/IP). Strict per-endpoint limits live on
+// the auth routes themselves.
+app.use(globalLimiter);
 
 router.get("/health", (req, res) => {
   res.status(200).json({

@@ -28,9 +28,7 @@ const verifyToken = async (req, res, next) => {
     }
 
     if (user.isBlocked) {
-      return next(
-        new ErrorResponse("Account is suspended. Please contact support.", 403)
-      );
+      return next(new ErrorResponse("Account is suspended. Please contact support.", 403));
     }
 
     // 3. Attach to Request

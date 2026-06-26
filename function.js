@@ -128,9 +128,7 @@ const searchBook = (search) => {
     (book) =>
       book.title.toLowerCase().includes(searchLower) ||
       book.author.toLowerCase().includes(searchLower) ||
-      book.category.some((category) =>
-        category.toLowerCase().includes(searchLower)
-      )
+      book.category.some((category) => category.toLowerCase().includes(searchLower)),
   );
   return filtered; // Return the filtered list of books
 };

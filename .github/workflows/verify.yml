@@ -1,0 +1,43 @@
+name: Code Quality Verification
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  validate-codebase:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Clean Install Dependencies
+        run: npm ci # Uses lockfile for 100% reproducible builds
+
+      # Run the format script directly on every push
+      - name: Run Prettier Auto-Formatter
+        run: npm run format
+
+      # If files were changed, commit them. If not, this step cleanly skips.
+      - name: Commit and Push Changes if Formatted
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff-index --quiet HEAD || git commit -m "style: format codebase from messy code."
+          git push
+
+      - name: Run Static Code Analysis (ESLint)
+        run: npm run lint

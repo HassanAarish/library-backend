@@ -18,9 +18,20 @@ const generateToken = (userInfo) => {
     SECRET_KEY,
     {
       expiresIn: accessTokenExpiration,
-    }
+    },
   );
   return accessToken;
 };
 
-export { generateToken };
+/**
+ * A short-lived token that proves the FIRST factor (password or social) passed
+ * but the login isn't complete until the 2FA code is verified. Not a real
+ * access token — it only carries `twoFactorPending` + the user id.
+ */
+const generatePendingToken = (userInfo) => {
+  return jwt.sign({ twoFactorPending: true, userID: userInfo._id }, SECRET_KEY, {
+    expiresIn: "5m",
+  });
+};
+
+export { generateToken, generatePendingToken };

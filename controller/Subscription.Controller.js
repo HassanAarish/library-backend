@@ -4,11 +4,11 @@ import asyncHandler from "../middlewares/asyncHandler.js";
 import Subscription from "../models/Subscription.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import User from "../models/User.Model.js";
-import dotenv from "dotenv";
+import { getEnv } from "../config/dotenv.js";
 
-dotenv.config();
+const STRIPE_SECRET_KEY = getEnv("STRIPE_SECRET_KEY");
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(STRIPE_SECRET_KEY);
 
 const data = [
   {
@@ -71,9 +71,7 @@ export const initiateSubscription = asyncHandler(async (req, res, next) => {
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email,
-        name: user.lastName
-          ? `${user.firstName} ${user.lastName}`
-          : `${user.firstName}`,
+        name: user.lastName ? `${user.firstName} ${user.lastName}` : `${user.firstName}`,
       });
       user.stripeCustomerId = customer.id;
       await user.save();
@@ -94,10 +92,7 @@ export const initiateSubscription = asyncHandler(async (req, res, next) => {
     if (!subscription.id) {
       await stripe.subscriptions.del(subscription.id);
       return next(
-        new ErrorResponse(
-          "Failed to create subscription record. Rollback successful.",
-          500
-        )
+        new ErrorResponse("Failed to create subscription record. Rollback successful.", 500),
       );
     }
     return res.status(201).json({
@@ -118,21 +113,15 @@ export const initiateSubscription = asyncHandler(async (req, res, next) => {
 });
 
 export const createSubscription = asyncHandler(async (req, res, next) => {
-  const { stripeSubscriptionId, stripePriceId, stripeCustomerId, planName } =
-    req.body;
+  const { stripeSubscriptionId, stripePriceId, stripeCustomerId, planName } = req.body;
   const userId = req.userID;
   try {
-    if (
-      !stripeSubscriptionId ||
-      !stripePriceId ||
-      !stripeCustomerId ||
-      !planName
-    ) {
+    if (!stripeSubscriptionId || !stripePriceId || !stripeCustomerId || !planName) {
       return next(
         new ErrorResponse(
           "Missing required subscription data: stripeSubscriptionId, stripePriceId, stripeCustomerId, planName",
-          400
-        )
+          400,
+        ),
       );
     }
 
@@ -186,7 +175,7 @@ export const cancelSubscription = asyncHandler(async (req, res, next) => {
       return next(new ErrorResponse("Subscription not found", 404));
     }
     const canceledSubscription = await stripe.subscriptions.cancel(
-      subscription.stripeSubscriptionId
+      subscription.stripeSubscriptionId,
     );
 
     subscription.active = false;
@@ -323,7 +312,7 @@ export const getAllProducts = asyncHandler(async (req, res, next) => {
           priceAmount: price.unit_amount / 100,
           priceId: price.id,
         }));
-      })
+      }),
     );
 
     const flatProductsWithPrices = productsWithPrices.flat();
@@ -350,9 +339,7 @@ export const editProductPrice = asyncHandler(async (req, res, next) => {
     }
 
     if (!priceId || !newPriceAmount) {
-      return next(
-        new ErrorResponse("Price ID and new price amount are required.", 400)
-      );
+      return next(new ErrorResponse("Price ID and new price amount are required.", 400));
     }
 
     if (isNaN(newPriceAmount) || newPriceAmount <= 0) {

@@ -8,12 +8,7 @@ export const register = asyncHandler(async (req, res) => {
   const session = req.transaction;
 
   // Your new mandatory fields check (assuming you call it via middleware or here)
-  helper.checkMandatoryFields(req.body, [
-    "name",
-    "email",
-    "password",
-    "authType",
-  ]);
+  helper.checkMandatoryFields(req.body, ["name", "email", "password", "authType"]);
 
   await authService.register(req.body, session);
 
@@ -37,6 +32,20 @@ export const verifyOtp = asyncHandler(async (req, res) => {
   });
 });
 
+export const resendOtp = asyncHandler(async (req, res) => {
+  const session = req.transaction;
+
+  helper.checkMandatoryFields(req.body, ["email"]);
+
+  await authService.resendOtp(req.body, session);
+
+  // Generic response — never reveals whether the account exists or its state.
+  return res.status(200).json({
+    success: true,
+    message: "If your account needs verification, a new code has been sent.",
+  });
+});
+
 // Login Controller with 2FA enabled/disabled
 
 export const login = asyncHandler(async (req, res) => {
@@ -44,21 +53,87 @@ export const login = asyncHandler(async (req, res) => {
 
   helper.checkMandatoryFields(req.body, ["email", "password", "authType"]);
 
-  const { user, token } = await authService.login(req.body, session);
+  const result = await authService.login(req.body, session);
 
-  if (user?.twoFactor?.enabled) {
+  if (result.twoFactorRequired) {
     return res.status(200).json({
       success: true,
-      twoFactorEnabled: true,
-      message: "2FA is enabled. Please enter the OTP from your app.",
-      userId: user._id,
+      twoFactorRequired: true,
+      pendingToken: result.pendingToken,
+      message: "Enter the code from your authenticator app.",
     });
   }
 
   return res.status(200).json({
     success: true,
     message: "Logged in successfully",
-    token,
+    token: result.token,
+  });
+});
+
+// Password Reset Controller
+
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const session = req.transaction;
+
+  helper.checkMandatoryFields(req.body, ["email"]);
+
+  await authService.forgotPassword(req.body, session);
+
+  return res.status(200).json({
+    success: true,
+    message: "If an account exists for that email, a password reset link has been sent.",
+  });
+});
+
+export const resetPassword = asyncHandler(async (req, res) => {
+  const session = req.transaction;
+
+  const fields = { ...req.query, ...req.body };
+
+  helper.checkMandatoryFields(fields, ["token", "password"]);
+
+  await authService.resetPassword(fields, session);
+
+  return res.status(200).json({
+    success: true,
+    message: "Password reset successfully. Please login to continue.",
+  });
+});
+
+// Unified social sign-in: google | apple | facebook
+export const socialLogin = asyncHandler(async (req, res) => {
+  const session = req.transaction;
+
+  helper.checkMandatoryFields(req.body, ["provider", "token"]);
+
+  const result = await authService.socialLogin(req.body, session);
+
+  // Same-email account exists and the user hasn't consented to linking yet —
+  // tell the frontend to prompt (link, or sign in with the password instead).
+  if (result.linkRequired) {
+    return res.status(200).json({
+      success: true,
+      linkRequired: true,
+      email: result.email,
+      message:
+        "An account with this email already exists. Link your social account to continue, or sign in with your password.",
+    });
+  }
+
+  if (result.twoFactorRequired) {
+    return res.status(200).json({
+      success: true,
+      twoFactorRequired: true,
+      pendingToken: result.pendingToken,
+      message: "Enter the code from your authenticator app.",
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Logged in successfully",
+    token: result.token,
   });
 });
 
@@ -108,36 +183,6 @@ export const login = asyncHandler(async (req, res) => {
 //     return next(error);
 //   }
 // });
-
-// Password Reset Controller
-
-export const forgotPassword = asyncHandler(async (req, res) => {
-  const session = req.transaction;
-
-  helper.checkMandatoryFields(req.body, ["email"]);
-
-  await authService.forgotPassword(req.body, session);
-
-  return res.status(201).json({
-    success: true,
-    message: "Password reset email sent to your email.",
-  });
-});
-
-export const resetPassword = asyncHandler(async (req, res) => {
-  const session = req.transaction;
-
-  const fields = { ...req.query, ...req.body };
-
-  helper.checkMandatoryFields(fields, ["token", "password"]);
-
-  await authService.resetPassword(fields, session);
-
-  return res.status(200).json({
-    success: true,
-    message: "Password reset successfully. Please login to continue.",
-  });
-});
 
 // Instructor Registration
 

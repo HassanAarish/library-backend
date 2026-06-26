@@ -1,13 +1,9 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
+import * as reviewService from "../services/Review.Service.js";
 
 export const createReview = asyncHandler(async (req, res) => {
   const { bookId } = req.params;
-  await reviewService.createReview(
-    bookId,
-    req.userID,
-    req.body,
-    req.transaction
-  );
+  await reviewService.createReview(bookId, req.userID, req.body, req.transaction);
 
   res.status(201).json({
     success: true,

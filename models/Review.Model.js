@@ -23,7 +23,7 @@ const ReviewSchema = new mongoose.Schema(
       trim: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Prevent a user from reviewing the same book twice

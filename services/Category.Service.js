@@ -1,6 +1,14 @@
 import Category from "../models/Category.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import helper from "../utils/helper.js";
+import cache from "../utils/cache.js";
+
+// Categories change rarely but are read often → a good cache-aside target.
+const CATEGORY_LIST_PREFIX = "categories:list:";
+const CATEGORY_LIST_TTL = 300; // seconds (5 minutes)
+
+// Drop every cached category-list page after any write.
+const invalidateCategoryList = () => cache.delByPrefix(CATEGORY_LIST_PREFIX);
 
 export const createCategory = async (body, userId, role, session = null) => {
   const { name, description } = body;
@@ -21,7 +29,9 @@ export const createCategory = async (body, userId, role, session = null) => {
     status: role === "admin" ? "approved" : "pending",
   });
 
-  return await category.save({ session });
+  const saved = await category.save({ session });
+  await invalidateCategoryList();
+  return saved;
 };
 
 export const getCategories = async (req) => {
@@ -32,7 +42,11 @@ export const getCategories = async (req) => {
     populate: { path: "proposedBy", select: "name email" },
   };
 
-  return await helper.paginate(Category, req, options);
+  // Cache-aside keyed by the query params that affect the result set.
+  const { page = 1, limit = 10, search = "", status = "" } = req.query;
+  const key = `${CATEGORY_LIST_PREFIX}${page}:${limit}:${search}:${status}`;
+
+  return cache.wrap(key, CATEGORY_LIST_TTL, () => helper.paginate(Category, req, options));
 };
 
 export const updateCategory = async (categoryId, body, session = null) => {
@@ -41,10 +55,7 @@ export const updateCategory = async (categoryId, body, session = null) => {
   if (!category) throw new ErrorResponse("Category not found", 404);
 
   // If status is being updated, ensure it's a valid enum
-  if (
-    body.status &&
-    !["approved", "pending", "rejected"].includes(body.status)
-  ) {
+  if (body.status && !["approved", "pending", "rejected"].includes(body.status)) {
     throw new ErrorResponse("Invalid status value", 400);
   }
 
@@ -54,6 +65,7 @@ export const updateCategory = async (categoryId, body, session = null) => {
     session,
   });
 
+  await invalidateCategoryList();
   return updatedCategory;
 };
 
@@ -66,5 +78,6 @@ export const deleteCategory = async (categoryId, session = null) => {
   }
 
   await category.deleteOne({ session });
+  await invalidateCategoryList();
   return true;
 };
