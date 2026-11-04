@@ -67,15 +67,32 @@ const escapeHtml = (text) =>
  * Fire-and-forget: never throws, never awaited — a mail outage must not undo
  * the action that triggered it. In-app notifications come in addition later.
  */
-export const notifyUser = (email, title, message) => {
-  if (!email) return;
-
+const deliverNotice = (email, title, message) =>
   sendEmail({
     to: email,
     subject: `${APP_NAME}: ${title}`,
     text: message,
     html: layout(escapeHtml(title), `<p>${escapeHtml(message)}</p>`),
   }).catch((err) => console.error(`Failed to send "${title}" email:`, err.message));
+
+export const notifyUser = (email, title, message) => {
+  if (!email) return;
+  deliverNotice(email, title, message);
+};
+
+/**
+ * Same notice to many people (e.g. everyone following a book request). Sent a
+ * few at a time so a popular request doesn't flood the SMTP server.
+ * Fire-and-forget, like notifyUser.
+ */
+export const notifyUsers = (emails, title, message, concurrency = 3) => {
+  const queue = [...new Set(emails.filter(Boolean))];
+
+  const worker = async () => {
+    while (queue.length) await deliverNotice(queue.shift(), title, message);
+  };
+
+  Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, worker));
 };
 
 export const passwordResetEmail = async (email, link) => {

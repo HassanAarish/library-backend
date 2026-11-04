@@ -331,6 +331,46 @@ on the cron — it's checked against the dates.
 
 ---
 
+## 🙋 Book requests
+
+Users ask the admin to add a book; there is **one request per book**, and
+everyone who wants it is a follower of that request.
+
+- **Duplicates merge automatically.** Titles and authors are normalised (case,
+  punctuation, accents, a leading "The/A/An"), so `"The Alchemist"`, `"alchemist!"`
+  and `"Alchemist" by "paulo coelho."` are the same request. A matching ISBN
+  wins over the title. Leaving the author blank joins the existing request for
+  that title; a different author makes a separate request.
+- **Already in the library?** Nothing is created; the response returns the book.
+- **Statuses:** `open → reviewing → planned → fulfilled`, or `rejected` (a reason
+  is required). `merged` (the admin folded a duplicate into another request) and
+  `withdrawn` (every follower left) also close a request. A closed request can be
+  asked for again.
+- **Updates:** every admin change is emailed to all followers after it commits.
+  Blocked users and anyone with `notifications.email: false` are skipped. Each
+  request keeps a public `history` timeline and the latest `statusNote`.
+- **Privacy:** lists and details show the follower *count* only, never who.
+- **Fair use:** a user can follow up to 20 open requests, and create or join up
+  to 20 per hour (`config/bookRequestPolicy.js`).
+
+```
+GET    /bookrequest                     public: open requests, most wanted first
+                                        (?search, status, language, sort=popular|newest|oldest)
+GET    /bookrequest/:id                 public detail (+ "following" when logged in)
+POST   /bookrequest                     { title, author?, isbn?, language?, note? }
+GET    /bookrequest/mine                requests I asked for or joined
+POST   /bookrequest/:id/follow          { note? }   "I want this too"
+DELETE /bookrequest/:id/follow          stop following
+
+admin: GET   /bookrequest/admin              (?status, search, sort)
+       GET   /bookrequest/admin/:id          followers with name/email + notes
+       PATCH /bookrequest/admin/:id/status   { status: open|reviewing|planned|rejected, note? }
+       POST  /bookrequest/admin/:id/fulfill  { bookId, note? }   book must be published
+       POST  /bookrequest/admin/:id/merge    { intoId }
+```
+
+---
+
 ## ✨ Other features
 
 - **Caching** (`utils/cache.js`) — `cache.wrap(key, ttl, fn)` cache-aside with
@@ -348,7 +388,7 @@ on the cron — it's checked against the dates.
 - **Cron** — cleans up unverified users older than 10 minutes (and their
   orphaned Preferences), logging each deletion to `config/logs/deleted-users.log`.
 - **Domain models** — `User`, `Book`, `Category`, `Rental`, `Payment`,
-  `PackagePlan`, `UserPackage`, `Review`, `Notification`, `Preferences`,
+  `PackagePlan`, `UserPackage`, `BookRequest`, `Review`, `Notification`, `Preferences`,
   `Asset`, `AuditLog`, `RequestLog`. Categories use a pending →
   approved/rejected moderation workflow gated behind admin role. A book's `file`
   is `select: false` and is never returned to users.
