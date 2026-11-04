@@ -96,24 +96,20 @@ export const uploadFiles = async (files, userId) => {
 };
 
 /**
- * Upload a book PDF as a PRIVATE Cloudinary asset (delivery type
- * "authenticated"): it has no public URL, and pages can only be fetched with a
- * server-signed URL by the reader service. Recorded as an Asset owned by the
- * admin so it can be attached to a book.
+ * Upload one file as a PRIVATE Cloudinary asset (delivery type
+ * "authenticated"): it has no public URL and can only be fetched with a
+ * server-signed URL. Recorded as an Asset owned by `userId`.
  *
- * @returns {Promise<{ public_id: string, name: string, pages: number, bytes: number }>}
+ * @returns {Promise<{ public_id: string, name: string, pages?: number, bytes: number }>}
  */
-export const uploadBookFile = async (file, userId) => {
+const uploadPrivateFile = async (file, userId, { folder, auditAction }) => {
   if (!file) {
     throw new ErrorResponse("No file provided", 400);
   }
 
   assertFileSignature(file);
 
-  const uploaded = await uploadFileToCloudinary(file, {
-    folder: "library/books",
-    type: "authenticated",
-  });
+  const uploaded = await uploadFileToCloudinary(file, { folder, type: "authenticated" });
 
   try {
     await Asset.create({ ...uploaded, owner: userId });
@@ -122,7 +118,7 @@ export const uploadBookFile = async (file, userId) => {
     throw err;
   }
 
-  audit("book.file.upload", {
+  audit(auditAction, {
     metadata: {
       public_id: uploaded.public_id,
       name: uploaded.name,
@@ -135,6 +131,17 @@ export const uploadBookFile = async (file, userId) => {
   const { public_id, name, pages, bytes } = uploaded;
   return { public_id, name, pages, bytes };
 };
+
+// Book PDFs: pages are rendered on demand by the reader service.
+export const uploadBookFile = (file, userId) =>
+  uploadPrivateFile(file, userId, { folder: "library/books", auditAction: "book.file.upload" });
+
+// Payment screenshots contain phone numbers — only admins see them, via signed links.
+export const uploadPaymentProof = (file, userId) =>
+  uploadPrivateFile(file, userId, {
+    folder: "library/payment-proofs",
+    auditAction: "payment.proof_upload",
+  });
 
 /**
  * Upload a REMOTE image (e.g. a Google/Facebook avatar URL) to Cloudinary and

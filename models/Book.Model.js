@@ -57,6 +57,10 @@ const BookSchema = new mongoose.Schema(
       default: "draft",
     },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+
+    // Bumped inside every booking transaction so concurrent bookings of the
+    // same book conflict and can't both claim one slot.
+    bookingVersion: { type: Number, default: 0, select: false },
   },
   { timestamps: true },
 );

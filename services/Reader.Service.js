@@ -1,7 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import NodeCache from "node-cache";
 import Book from "../models/Book.Model.js";
-import Rental from "../models/Rental.Model.js";
+import Rental, { READABLE_STATUSES } from "../models/Rental.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import cache from "../utils/cache.js";
 import { audit } from "../utils/audit.js";
@@ -34,11 +34,11 @@ const findActiveRental = (userId, bookId) => {
   return Rental.findOne({
     bookId,
     renterId: userId,
-    status: "active",
-    rentalDate: { $lte: now },
-    expiryDate: { $gt: now },
+    status: { $in: READABLE_STATUSES },
+    startDate: { $lte: now },
+    endDate: { $gt: now },
   })
-    .select("_id expiryDate")
+    .select("_id endDate")
     .lean();
 };
 
@@ -167,7 +167,7 @@ export const openBook = async (reader, bookId) => {
     title: book.title,
     author: book.author,
     pageCount: book.pageCount,
-    accessUntil: rental?.expiryDate ?? null,
+    accessUntil: rental?.endDate ?? null,
   };
 };
 

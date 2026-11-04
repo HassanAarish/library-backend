@@ -56,6 +56,28 @@ export const sendOtp = async (email, otp) => {
   });
 };
 
+const escapeHtml = (text) =>
+  String(text).replace(
+    /[<>&"']/g,
+    (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" })[c],
+  );
+
+/**
+ * Plain account notification (payment confirmed, credits expiring, …).
+ * Fire-and-forget: never throws, never awaited — a mail outage must not undo
+ * the action that triggered it. In-app notifications come in addition later.
+ */
+export const notifyUser = (email, title, message) => {
+  if (!email) return;
+
+  sendEmail({
+    to: email,
+    subject: `${APP_NAME}: ${title}`,
+    text: message,
+    html: layout(escapeHtml(title), `<p>${escapeHtml(message)}</p>`),
+  }).catch((err) => console.error(`Failed to send "${title}" email:`, err.message));
+};
+
 export const passwordResetEmail = async (email, link) => {
   return sendEmail({
     to: email,

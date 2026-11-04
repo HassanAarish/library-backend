@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { v2 as cloudinary } from "cloudinary";
+import { getContext } from "../utils/requestContext.js";
 
 /**
  * Opens a Mongo transaction for the request (exposed as req.transaction).
@@ -8,6 +9,7 @@ import { v2 as cloudinary } from "cloudinary";
  * so a 2xx/3xx body only goes out once the commit has succeeded. If the commit
  * fails, the client gets a 500 instead of a false "success". Error responses
  * (4xx/5xx) abort the transaction and roll back any queued Cloudinary uploads.
+ * Callbacks registered with afterCommit() run only after a successful commit.
  */
 export const inTransaction = async (req, res, next) => {
   const session = await mongoose.startSession();
@@ -15,6 +17,9 @@ export const inTransaction = async (req, res, next) => {
   req.transaction = session;
 
   req.cloudinaryCleanupQueue = [];
+
+  const context = getContext();
+  context.afterCommit = [];
 
   let settled = false;
 
@@ -53,6 +58,7 @@ export const inTransaction = async (req, res, next) => {
       .then(() => {
         if (!commit) rollbackUploads();
         sendJson(body);
+        if (commit) context.afterCommit.splice(0).forEach((run) => run());
       })
       .catch((err) => {
         console.error("❌ Transaction commit failed:", err);

@@ -269,6 +269,68 @@ counts). Non-PDF books are reported and kept as drafts.
 
 ---
 
+## 🗓️ Rentals, packages & payments
+
+Each book has **one copy**: one reader at a time, everyone else books a later
+slot. All rules live in `config/rentalPolicy.js`.
+
+| Rule | Value |
+|---|---|
+| Rental length | the book's `rentalDays` (default 14) |
+| Extension | one free +7 days, only if nobody is booked right after |
+| Fair use | max **2 active** + **3 upcoming** rentals per user |
+| Booking ahead | start at most 60 days ahead |
+| Unpaid hold | slot held 30 min for payment proof (package: 24 h) |
+| Cancel before start | package credit returned; paid booking → manual refund request |
+
+**Availability** — `GET /rental/availability/:bookId` (public; logged-in users
+also get their own booking and `placeInLine`):
+
+```json
+{ "availableNow": false, "isRentedNow": true, "currentRentalEndsAt": "…",
+  "peopleAhead": 2, "queueLength": 1, "nextAvailableStart": "…",
+  "bookedSlots": [{ "start": "…", "end": "…" }], "myBooking": null }
+```
+
+**Booking** — `POST /rental { bookId, startDate?, paymentMethod }`
+- no `startDate` → the earliest free slot (now, if the book is free);
+- `"single"` → `pending_payment`, slot held, returns Easypaisa instructions;
+- `"credit"` → uses one package credit (soonest-expiring package first, must be
+  valid on the start date) and is confirmed immediately.
+
+Overlaps are impossible: every booking transaction bumps the book's
+`bookingVersion`, so concurrent bookings of one book conflict and the loser gets
+a 409 to retry.
+
+**Packages** — the admin manages plans (`/package/admin/plans`: credits, price,
+validity, active). Buying one creates a `UserPackage` + a payment; credits
+activate (and the 1-year clock starts) when the admin approves the payment.
+Each purchase keeps a **snapshot** of the plan, so later edits don't affect it.
+Reminders are emailed 30 and 7 days before unused credits expire.
+
+**Payments (Easypaisa, manual)** — behind a provider interface
+(`services/payments/providers.js`) so a gateway or Stripe can be added later
+without touching rentals.
+
+```
+1. booking/purchase   → Payment { reference: "LH-XXXXXXXX", amount, instructions }
+2. user transfers to the Easypaisa account, then:
+   POST /payment/proof-upload   multipart "file" (receipt screenshot, stored privately)
+   POST /payment/:id/proof      { transactionId, senderNumber, senderName?, screenshot: { public_id } }
+3. admin: GET /payment/admin?status=submitted   (signed screenshot links)
+          PATCH /payment/admin/:id/approve | /reject { reason } | /refund { status, note }
+```
+
+A transaction ID can be used **once ever** (unique index); a re-used TID is
+refused and raises a `critical` audit event. Approval/rejection emails go out
+only after the change is committed (`afterCommit`).
+
+**Lifecycle cron** (every minute): releases expired holds, moves
+`scheduled → active → completed`, expires packages. Reading access never waits
+on the cron — it's checked against the dates.
+
+---
+
 ## ✨ Other features
 
 - **Caching** (`utils/cache.js`) — `cache.wrap(key, ttl, fn)` cache-aside with
@@ -285,14 +347,11 @@ counts). Non-PDF books are reported and kept as drafts.
   the profile picture.
 - **Cron** — cleans up unverified users older than 10 minutes (and their
   orphaned Preferences), logging each deletion to `config/logs/deleted-users.log`.
-- **Domain models** — `User`, `Book`, `Category`, `Rental`, `Review`,
-  `Subscription`, `Notification`, `Preferences`, `Asset`, `AuditLog`,
-  `RequestLog`. Categories use a pending → approved/rejected moderation workflow
-  gated behind admin role. A book's `file` is `select: false` and is never
-  returned to users.
-- **Rentals** — the old `POST /rental` endpoint is disabled (it trusted
-  client-supplied payment data). It will be replaced by a reservation +
-  verified-payment flow.
+- **Domain models** — `User`, `Book`, `Category`, `Rental`, `Payment`,
+  `PackagePlan`, `UserPackage`, `Review`, `Notification`, `Preferences`,
+  `Asset`, `AuditLog`, `RequestLog`. Categories use a pending →
+  approved/rejected moderation workflow gated behind admin role. A book's `file`
+  is `select: false` and is never returned to users.
 
 ---
 
@@ -302,11 +361,11 @@ counts). Non-PDF books are reported and kept as drafts.
 library-backend/
 ├── config/          dotenv, db (Mongo), redis (optional), morgan logger
 ├── controller/      thin request handlers (one per domain)
-├── cron/            scheduled jobs (unverified-user cleanup)
+├── cron/            scheduled jobs (unverified-user cleanup, rental lifecycle, credit reminders)
 ├── middlewares/     requestLogger, verifyToken, verifyRole, inTransaction, rateLimiter, asyncHandler, errorHandler
 ├── models/          Mongoose schemas
 ├── routes/          *.Routes.js (auto-mounted by filename)
-├── scripts/         one-off maintenance (e.g. migrate-books-v2.js)
+├── scripts/         one-off maintenance (sync-indexes.js, migrate-books-v2.js)
 ├── services/        business logic + DB access
 ├── utils/           audit, requestContext, redact, emailClient, socialVerify, twoFactor, cache, generateTokens, fileLogger, helper, errorResponse
 └── server.js        app entry
@@ -352,6 +411,11 @@ TWO_FA_ISSUER=LibraryHub       # name shown in the authenticator app
 
 # Redis (optional) — enables Redis-backed rate limiting + caching
 REDIS_URL=rediss://default:<pwd>@<host>:6379   # e.g. a free Upstash DB
+
+# Payments — Easypaisa (manual verification). Until both are set, paid
+# bookings and package purchases return 503 "payments aren't available yet".
+EASYPAISA_ACCOUNT_TITLE=<name on the Easypaisa account>
+EASYPAISA_ACCOUNT_NUMBER=03XXXXXXXXX
 ```
 
 > Payments: the first launch is Pakistan-only, so there is no Stripe
@@ -416,6 +480,21 @@ The API runs on `http://localhost:5001`. Health check: `GET /health`.
 | GET | `/book/admin`, `/book/admin/:bookId` | admin | All books, any status |
 | GET | `/reader/:bookId` | ✅ renter | Open a rented book |
 | GET | `/reader/:bookId/pages/:page` | ✅ renter | One watermarked page (JPEG) |
+| GET | `/rental/availability/:bookId` | optional | Free now? next start, people ahead, my place |
+| POST | `/rental` | ✅ | Book a slot (`single` or `credit`) |
+| GET | `/rental/mine`, `/rental/:rentalId` | ✅ | My rentals (+ payment instructions if unpaid) |
+| POST | `/rental/:rentalId/cancel` · `/extend` · `/return` · `/start-now` | ✅ | Manage a rental |
+| GET | `/rental/admin` | admin | All rentals |
+| GET | `/package/plans` | — | Packages on sale |
+| POST | `/package/purchase` · `/package/:id/cancel` | ✅ | Buy / cancel an unpaid package |
+| GET | `/package/mine` | ✅ | My credits and packages |
+| GET/POST/PATCH | `/package/admin/plans[/:planId]` | admin | Manage plans |
+| GET | `/package/admin/purchases` | admin | All package purchases |
+| GET | `/payment/methods` | — | Available payment methods |
+| POST | `/payment/proof-upload` · `/payment/:id/proof` | ✅ | Send payment proof |
+| GET | `/payment/mine`, `/payment/:paymentId` | ✅ | My payments |
+| GET | `/payment/admin` | admin | Review payments |
+| PATCH | `/payment/admin/:id/approve` · `/reject` · `/refund` | admin | Decide a payment / refund |
 | POST | `/review/:bookId` | ✅ | Review a book you have rented |
 | GET | `/admin/audit-logs` | admin | Query the audit trail |
 | GET | `/admin/request-logs` | admin | Query the per-request log |

@@ -12,6 +12,12 @@ const errorHandler = (err, req, res, next) => {
   // Log to console for dev
   console.error("❌ Error Intercepted:", err);
 
+  // 0. Two transactions touched the same document at once (e.g. two people
+  // booking the same slot). The loser is told to retry — never a 500.
+  if (err.code === 112 || err.hasErrorLabel?.("TransientTransactionError")) {
+    error = new ErrorResponse("Someone else just made a change here. Please try again.", 409);
+  }
+
   // 1. Mongoose Duplicate Key (Error Code 11000)
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue || {})[0] || "value";

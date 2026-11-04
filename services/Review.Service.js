@@ -15,7 +15,7 @@ export const createReview = async (bookId, userId, data, session = null) => {
   const hasRented = await Rental.exists({
     bookId,
     renterId: userId,
-    status: { $in: ["active", "expired"] },
+    status: { $in: ["active", "completed"] },
   }).session(session);
 
   if (!hasRented) {
