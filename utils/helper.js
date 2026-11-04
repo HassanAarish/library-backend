@@ -103,7 +103,7 @@ const dateRangeFilter = (from, to, field = "createdAt") => {
  * Only query params named in `filterFields` become filters — anything else the
  * client sends is ignored, so callers can't filter on hidden fields (tokens,
  * secrets) or override server-side rules. `filters` are applied last and always
- * win (e.g. { status: "approved" } on a public listing).
+ * win (e.g. { status: "published" } on a public listing).
  *
  * @param {mongoose.Model} model - The Mongoose model to query
  * @param {Object} req - The Express request object

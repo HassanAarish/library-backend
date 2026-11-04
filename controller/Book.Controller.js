@@ -1,56 +1,89 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
-import ErrorResponse from "../utils/errorResponse.js";
 import helper from "../utils/helper.js";
 import * as bookService from "../services/Book.Service.js";
+import { uploadBookFile } from "../services/Common.Service.js";
 
-export const createBookRequest = asyncHandler(async (req, res) => {
+// --- Public catalogue
+
+export const getCatalog = asyncHandler(async (req, res) => {
+  const result = await bookService.getCatalog(req);
+
+  return res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const getBook = asyncHandler(async (req, res) => {
+  const data = await bookService.getBook(req.params.bookId);
+
+  return res.status(200).json({
+    success: true,
+    data,
+  });
+});
+
+// --- Admin
+
+export const uploadFile = asyncHandler(async (req, res) => {
+  const data = await uploadBookFile(req.file, req.userID);
+
+  return res.status(200).json({
+    success: true,
+    message: "Book file uploaded privately.",
+    data, // { public_id, name, pages, bytes } — pass public_id as `file` when creating the book
+  });
+});
+
+export const createBook = asyncHandler(async (req, res) => {
   const session = req.transaction;
 
-  // Mandatory fields check
-  const required = ["title", "author", "price", "categoryId", "file", "coverImage"];
+  const required = ["title", "author", "description", "price", "categoryId", "file", "coverImage"];
   helper.checkMandatoryFields(req.body, required);
 
-  await bookService.createBookRequest(req.body, req.userID, session);
+  const book = await bookService.createBook(req.body, req.userID, session);
 
   return res.status(201).json({
     success: true,
-    message: "Book uploaded and sent for admin approval.",
+    message: book.status === "published" ? "Book published." : "Book saved as draft.",
+    data: { _id: book._id, status: book.status },
   });
 });
 
-export const getMyBooks = asyncHandler(async (req, res) => {
-  const result = await bookService.getMyBooks(req, req.userID);
+export const updateBook = asyncHandler(async (req, res) => {
+  await bookService.updateBook(req.params.bookId, req.body, req.userID, req.transaction);
 
   return res.status(200).json({
     success: true,
-    data: result,
+    message: "Book updated.",
   });
 });
 
-export const getAllBooks = asyncHandler(async (req, res) => {
-  const result = await bookService.getAllBooks(req);
-
-  return res.status(200).json({
-    success: true,
-    data: result,
-  });
-});
-
-export const reviewBook = asyncHandler(async (req, res) => {
-  const { bookId } = req.params;
-  const { status } = req.body;
-  const session = req.transaction;
-
+export const setBookStatus = asyncHandler(async (req, res) => {
   helper.checkMandatoryFields(req.body, ["status"]);
 
-  if (!["approved", "rejected"].includes(status)) {
-    throw new ErrorResponse("Invalid status update.", 400);
-  }
-
-  await bookService.reviewBook(bookId, req.body, session);
+  const book = await bookService.setBookStatus(req.params.bookId, req.body.status, req.transaction);
 
   return res.status(200).json({
     success: true,
-    message: `Book has been ${status}.`,
+    message: `Book is now ${book.status}.`,
+  });
+});
+
+export const getAdminBooks = asyncHandler(async (req, res) => {
+  const data = await bookService.getAdminBooks(req);
+
+  return res.status(200).json({
+    success: true,
+    data,
+  });
+});
+
+export const getAdminBook = asyncHandler(async (req, res) => {
+  const data = await bookService.getAdminBook(req.params.bookId);
+
+  return res.status(200).json({
+    success: true,
+    data,
   });
 });

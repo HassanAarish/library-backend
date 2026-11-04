@@ -36,7 +36,8 @@
     "nodemailer": "^10.2.1",
     "otpauth": "^9.5.2",
     "qrcode": "^1.5.4",
-    "rate-limiter-flexible": "^11.2.3"
+    "rate-limiter-flexible": "^11.2.3",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

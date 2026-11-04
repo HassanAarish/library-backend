@@ -7,8 +7,8 @@ import { audit } from "../utils/audit.js";
 export const createReview = async (bookId, userId, data, session = null) => {
   const { rating, comment } = data;
 
-  // 1. Verify book exists and is approved
-  const book = await Book.findOne({ _id: bookId, status: "approved" }).session(session);
+  // 1. Verify book exists and is published
+  const book = await Book.findOne({ _id: bookId, status: "published" }).session(session);
   if (!book) throw new ErrorResponse("Book not found or not available for review", 404);
 
   // 2. Only readers who actually rented the book may review it

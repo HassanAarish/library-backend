@@ -213,14 +213,71 @@ traced straight to the matching log entries.
 
 ---
 
+## 📚 Books & the reader
+
+Only the admin adds books. Users browse covers and details without logging in,
+and can read a book **only on the platform, only while they hold an active
+rental** — the file itself is never sent to any client.
+
+**Adding a book (admin):**
+
+```
+1. POST /book/upload-file   multipart "file" (PDF, ≤100MB)
+      → stored on Cloudinary as a PRIVATE ("authenticated") asset
+      → { public_id, name, pages }               (no URL — there isn't a public one)
+2. POST /common/upload      multipart "files" (cover image) → { public_id, url }
+3. POST /book  { title, author, description, price, categoryId,
+                 file: { public_id }, coverImage: { public_id },
+                 language?, isbn?, publishedYear?, rentalDays? (default 14),
+                 status?: "draft" | "published" }
+```
+
+Lifecycle: `draft → published → archived` via `PATCH /book/:bookId/status`.
+Archived books stay in the database (rentals and reviews point at them).
+`Category.bookCount` counts **published** books. Prices are whole rupees (PKR)
+for one rental; package credits (coming with rentals) cover any book.
+
+**Reading (`/reader`):**
+
+```
+GET /reader/:bookId               → { title, author, pageCount, accessUntil }
+GET /reader/:bookId/pages/:page   → one page as a JPEG, watermarked for this reader
+```
+
+- Access is checked on **every page**: an active rental whose dates cover *now*
+  (admins can open any book, including drafts, to proof it).
+- The server fetches the page render from Cloudinary with a server-signed URL,
+  stamps it with the reader's ID, masked email and time (`utils/watermark.js`,
+  via `sharp`), and returns it with `Cache-Control: no-store`. Only one
+  un-watermarked render per page is cached, so Cloudinary usage doesn't grow
+  with the number of readers.
+- **Anti-scraping** — flags are `critical` audit events (`reader.suspicious`) for
+  the admin to review; nobody is blocked automatically:
+  - more than 40 pages/min of one book → throttled (429) and flagged;
+  - the same reader on more than 3 networks within 30 minutes → flagged.
+- Every page view is in the request log; opening a book is `reader.open`.
+
+> **Deployment notes:** (1) `sharp` renders the watermark text with system
+> fonts — on a slim Linux image install one (e.g. `fonts-dejavu-core`).
+> (2) If page requests fail with 401 from Cloudinary, enable PDF delivery in
+> Cloudinary → Settings → Security ("Allow delivery of PDF and ZIP files").
+> (3) Cloudinary's own max file size depends on your plan.
+
+**Migrating existing books:** `node scripts/migrate-books-v2.js` (dry run) →
+`--apply` → `--apply --move-files` (makes old PDFs private and records page
+counts). Non-PDF books are reported and kept as drafts.
+
+---
+
 ## ✨ Other features
 
 - **Caching** (`utils/cache.js`) — `cache.wrap(key, ttl, fn)` cache-aside with
   `delByPrefix` invalidation; Redis or in-memory. Applied to the category list.
-- **Uploads** — `POST /common/upload` (authenticated, multipart; JPEG/PNG/WebP,
-  PDF, EPUB, DOCX) streams to Cloudinary and records each file as an `Asset`
-  owned by the uploader. `POST /common/remove` deletes only the caller's own
-  assets (admins: any). Profile pictures and book files must reference an asset
+- **Uploads** — `POST /common/upload` (authenticated, multipart, JPEG/PNG/WebP
+  only) streams to Cloudinary and records each file as an `Asset` owned by the
+  uploader. File contents are checked by their magic bytes, not just the
+  declared type. `POST /common/remove` deletes only the caller's own assets
+  (admins: any). Profile pictures, covers and book files must reference an asset
   the user owns; their URLs come from the `Asset` record, never the request.
   `uploadFromUrl` imports a remote image (e.g. a social avatar) into Cloudinary
   for a durable copy.
@@ -230,9 +287,9 @@ traced straight to the matching log entries.
   orphaned Preferences), logging each deletion to `config/logs/deleted-users.log`.
 - **Domain models** — `User`, `Book`, `Category`, `Rental`, `Review`,
   `Subscription`, `Notification`, `Preferences`, `Asset`, `AuditLog`,
-  `RequestLog`. Books & categories use a pending → approved/rejected moderation
-  workflow gated behind admin role. A book's `file` is `select: false` and is
-  never returned by list endpoints.
+  `RequestLog`. Categories use a pending → approved/rejected moderation workflow
+  gated behind admin role. A book's `file` is `select: false` and is never
+  returned to users.
 - **Rentals** — the old `POST /rental` endpoint is disabled (it trusted
   client-supplied payment data). It will be replaced by a reservation +
   verified-payment flow.
@@ -249,7 +306,7 @@ library-backend/
 ├── middlewares/     requestLogger, verifyToken, verifyRole, inTransaction, rateLimiter, asyncHandler, errorHandler
 ├── models/          Mongoose schemas
 ├── routes/          *.Routes.js (auto-mounted by filename)
-├── scripts/         one-off maintenance (e.g. sync-indexes.js)
+├── scripts/         one-off maintenance (e.g. migrate-books-v2.js)
 ├── services/        business logic + DB access
 ├── utils/           audit, requestContext, redact, emailClient, socialVerify, twoFactor, cache, generateTokens, fileLogger, helper, errorResponse
 └── server.js        app entry
@@ -317,8 +374,6 @@ npm run dev        # nodemon, hot reload
 
 The API runs on `http://localhost:5001`. Health check: `GET /health`.
 
-If you change a `unique`/`sparse` index on a model, run the one-off
-`node scripts/sync-indexes.js` to reconcile the database indexes.
 
 ### Scripts
 | Command | Description |
@@ -350,15 +405,23 @@ If you change a `unique`/`sparse` index on a model, run the one-off
 | PATCH | `/user/password-update` | ✅ | Change password |
 | PATCH | `/user/profile-picture` | ✅ | Set/replace avatar |
 | DELETE | `/user/remove-profile-picture` | ✅ | Remove avatar |
-| POST | `/common/upload` | ✅ | Multipart upload to Cloudinary (records ownership) |
+| POST | `/common/upload` | ✅ | Image upload to Cloudinary (records ownership) |
 | POST | `/common/remove` | ✅ | Delete your own Cloudinary assets (admin: any) |
+| GET | `/book` | — | Catalogue: `search`, `category`, `language`, `sort`, `page`, `limit` |
+| GET | `/book/:bookId` | — | Published book details (cover + metadata) |
+| POST | `/book/upload-file` | admin | Upload a book PDF privately |
+| POST | `/book` | admin | Create a book (draft or published) |
+| PATCH | `/book/:bookId` | admin | Edit metadata, category, cover or file |
+| PATCH | `/book/:bookId/status` | admin | `draft` / `published` / `archived` |
+| GET | `/book/admin`, `/book/admin/:bookId` | admin | All books, any status |
+| GET | `/reader/:bookId` | ✅ renter | Open a rented book |
+| GET | `/reader/:bookId/pages/:page` | ✅ renter | One watermarked page (JPEG) |
 | POST | `/review/:bookId` | ✅ | Review a book you have rented |
 | GET | `/admin/audit-logs` | admin | Query the audit trail |
 | GET | `/admin/request-logs` | admin | Query the per-request log |
 
-Other domain routes (`/book`, `/category`, `/admin`)
-follow the same layered pattern; books & categories use the admin moderation
-workflow.
+Other domain routes (`/category`, `/admin`) follow the same layered pattern;
+categories use the admin moderation workflow.
 
 ---
 

@@ -6,8 +6,20 @@ import { audit } from "../utils/audit.js";
  * Builds an Express rate-limit middleware. Backed by Redis when available, with
  * an in-memory `insuranceLimiter` so a Redis outage degrades to local limiting
  * instead of locking everyone out. Without REDIS_URL it's purely in-memory.
+ *
+ * @param {object} options
+ * @param {(req) => string} [options.key] - what to count per; defaults to client IP
+ * @param {{ action: string, severity?: string }} [options.flag] - audit event raised
+ *   when the limit is first crossed; defaults to "security.rate_limited" (warning)
  */
-const createLimiter = ({ keyPrefix, points, duration, blockDuration }) => {
+export const createLimiter = ({
+  keyPrefix,
+  points,
+  duration,
+  blockDuration,
+  key = (req) => req.ip,
+  flag = { action: "security.rate_limited" },
+}) => {
   const memory = new RateLimiterMemory({
     keyPrefix: `${keyPrefix}_mem`,
     points,
@@ -28,7 +40,7 @@ const createLimiter = ({ keyPrefix, points, duration, blockDuration }) => {
 
   return (req, res, next) => {
     limiter
-      .consume(req.ip)
+      .consume(key(req))
       .then(() => next())
       .catch((rejection) => {
         // A thrown Error (not a rate-limit result) means the limiter backend
@@ -42,9 +54,16 @@ const createLimiter = ({ keyPrefix, points, duration, blockDuration }) => {
         // blocked retries would otherwise flood the audit log too. Every 429 is
         // still in the request log.
         if (rejection.consumedPoints === points + 1) {
-          audit("security.rate_limited", {
+          audit(flag.action, {
             outcome: "failure",
-            metadata: { limiter: keyPrefix, path: req.originalUrl, method: req.method },
+            severity: flag.severity,
+            metadata: {
+              limiter: keyPrefix,
+              reason: "rate_limit",
+              limit: `${points} per ${duration}s`,
+              path: req.originalUrl,
+              method: req.method,
+            },
           });
         }
 

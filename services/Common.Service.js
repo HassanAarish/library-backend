@@ -3,19 +3,23 @@ import { PassThrough } from "stream";
 import Asset from "../models/Asset.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import { audit } from "../utils/audit.js";
+import { assertFileSignature } from "../utils/fileSignature.js";
 
-const uploadFileToCloudinary = (file) => {
+/**
+ * Stream one multer file to Cloudinary. Everything is uploaded as an "image"
+ * resource — for PDFs that is what lets Cloudinary render individual pages.
+ *
+ * @param {object} file - multer file
+ * @param {{ folder?: string, type?: "upload" | "authenticated" }} [options]
+ */
+const uploadFileToCloudinary = (file, { folder = "library", type = "upload" } = {}) => {
   return new Promise((resolve, reject) => {
-    const isImage = file.mimetype.startsWith("image");
-    const isDocx =
-      file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
     const uploadOptions = {
-      resource_type: isImage ? "image" : "auto",
-      folder: "library",
+      resource_type: "image",
+      type,
+      folder,
       use_filename: true,
       unique_filename: true,
-      format: isDocx ? "docx" : undefined,
     };
 
     const uploadStream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
@@ -26,8 +30,10 @@ const uploadFileToCloudinary = (file) => {
           url: result.secure_url,
           public_id: result.public_id,
           resourceType: result.resource_type,
+          deliveryType: result.type,
           format: result.format,
           bytes: result.bytes,
+          pages: result.pages,
           mimetype: file.mimetype,
         });
     });
@@ -37,6 +43,13 @@ const uploadFileToCloudinary = (file) => {
     bufferStream.pipe(uploadStream);
   });
 };
+
+const destroyAsset = (asset) =>
+  cloudinary.uploader.destroy(asset.public_id, {
+    resource_type: asset.resourceType || "image",
+    type: asset.deliveryType || "upload",
+    invalidate: true,
+  });
 
 /**
  * Upload files to Cloudinary and record each one as an Asset owned by `userId`.
@@ -48,15 +61,12 @@ export const uploadFiles = async (files, userId) => {
     throw new ErrorResponse("No files provided", 400);
   }
 
+  files.forEach(assertFileSignature);
+
   const settled = await Promise.allSettled(files.map((file) => uploadFileToCloudinary(file)));
   const uploaded = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
 
-  const destroyUploaded = () =>
-    Promise.all(
-      uploaded.map((f) =>
-        cloudinary.uploader.destroy(f.public_id, { resource_type: f.resourceType }).catch(() => {}),
-      ),
-    );
+  const destroyUploaded = () => Promise.all(uploaded.map((f) => destroyAsset(f).catch(() => {})));
 
   const failure = settled.find((r) => r.status === "rejected");
   if (failure) {
@@ -86,6 +96,47 @@ export const uploadFiles = async (files, userId) => {
 };
 
 /**
+ * Upload a book PDF as a PRIVATE Cloudinary asset (delivery type
+ * "authenticated"): it has no public URL, and pages can only be fetched with a
+ * server-signed URL by the reader service. Recorded as an Asset owned by the
+ * admin so it can be attached to a book.
+ *
+ * @returns {Promise<{ public_id: string, name: string, pages: number, bytes: number }>}
+ */
+export const uploadBookFile = async (file, userId) => {
+  if (!file) {
+    throw new ErrorResponse("No file provided", 400);
+  }
+
+  assertFileSignature(file);
+
+  const uploaded = await uploadFileToCloudinary(file, {
+    folder: "library/books",
+    type: "authenticated",
+  });
+
+  try {
+    await Asset.create({ ...uploaded, owner: userId });
+  } catch (err) {
+    await destroyAsset(uploaded).catch(() => {});
+    throw err;
+  }
+
+  audit("book.file.upload", {
+    metadata: {
+      public_id: uploaded.public_id,
+      name: uploaded.name,
+      bytes: uploaded.bytes,
+      pages: uploaded.pages,
+    },
+  });
+
+  // Deliberately no URL in the response — the file is never addressed directly.
+  const { public_id, name, pages, bytes } = uploaded;
+  return { public_id, name, pages, bytes };
+};
+
+/**
  * Upload a REMOTE image (e.g. a Google/Facebook avatar URL) to Cloudinary and
  * return our standard { url, public_id }. Cloudinary fetches the URL server-side,
  * so a temporary/expiring provider URL becomes a permanent owned asset.
@@ -111,16 +162,15 @@ export const removeFiles = async (publicIds) => {
     throw new ErrorResponse("No public_id provided", 400);
   }
 
-  // Non-image files (PDF/EPUB/DOCX) must be destroyed with their real resource type.
+  // Destroy needs each file's real resource + delivery type (private book PDFs
+  // aren't found under the default "upload" type).
   const assets = await Asset.find({ public_id: { $in: ids } })
-    .select("public_id resourceType")
+    .select("public_id resourceType deliveryType")
     .lean();
-  const typeById = new Map(assets.map((a) => [a.public_id, a.resourceType]));
+  const assetById = new Map(assets.map((a) => [a.public_id, a]));
 
   const results = await Promise.all(
-    ids.map((id) =>
-      cloudinary.uploader.destroy(id, { resource_type: typeById.get(id) || "image" }),
-    ),
+    ids.map((id) => destroyAsset(assetById.get(id) || { public_id: id })),
   );
 
   await Asset.deleteMany({ public_id: { $in: ids } });

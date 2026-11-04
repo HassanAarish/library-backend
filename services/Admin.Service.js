@@ -1,6 +1,6 @@
 import AuditLog from "../models/AuditLog.Model.js";
-import Book from "../models/Book.Model.js";
 import Preferences from "../models/Preferences.Model.js";
+import Rental from "../models/Rental.Model.js";
 import RequestLog from "../models/RequestLog.Model.js";
 import User from "../models/User.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
@@ -24,10 +24,10 @@ export const getUserLists = async (req) => {
 
 export const getUserData = async (userId) => {
   // 1. Fetch User and Preferences in parallel
-  const [user, preferences, bookCount] = await Promise.all([
+  const [user, preferences, rentalCount] = await Promise.all([
     User.findById(userId).select(USER_SECRET_FIELDS).lean(),
     Preferences.findOne({ userId }).lean(),
-    Book.countDocuments({ uploader: userId }),
+    Rental.countDocuments({ renterId: userId }),
   ]);
 
   if (!user) {
@@ -38,7 +38,7 @@ export const getUserData = async (userId) => {
     ...user,
     profile: preferences || {},
     stats: {
-      totalBooksUploaded: bookCount,
+      totalRentals: rentalCount,
     },
   };
 };
