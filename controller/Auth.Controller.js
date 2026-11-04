@@ -101,7 +101,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   });
 });
 
-// Unified social sign-in: google | apple | facebook
+// Unified social sign-in: google | facebook
 export const socialLogin = asyncHandler(async (req, res) => {
   const session = req.transaction;
 

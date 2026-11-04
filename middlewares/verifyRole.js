@@ -1,4 +1,5 @@
 import ErrorResponse from "../utils/errorResponse.js";
+import { audit } from "../utils/audit.js";
 
 const verifyRole =
   (...roles) =>
@@ -9,6 +10,10 @@ const verifyRole =
 
     // Check if the user's role is included in the roles passed to the middleware
     if (!roles.includes(req.role)) {
+      audit("authz.denied", {
+        outcome: "failure",
+        metadata: { requiredRoles: roles, path: req.originalUrl, method: req.method },
+      });
       return next(new ErrorResponse("Permission Denied", 403));
     }
 

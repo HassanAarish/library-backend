@@ -1,5 +1,15 @@
 import mongoose from "mongoose";
 
+const BookFileSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true },
+    public_id: { type: String, required: true },
+    name: { type: String, required: true },
+    format: { type: String }, // pdf, docx, etc.
+  },
+  { _id: false },
+);
+
 const BookSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
@@ -16,12 +26,9 @@ const BookSchema = new mongoose.Schema(
       ref: "Category",
       required: true,
     },
-    file: {
-      url: { type: String, required: true },
-      public_id: { type: String, required: true },
-      name: { type: String, required: true },
-      format: { type: String }, // pdf, docx, etc.
-    },
+    // The readable book itself. Never returned by default — only code that has
+    // checked the reader's access may explicitly `.select("+file")`.
+    file: { type: BookFileSchema, required: true, select: false },
     coverImage: {
       name: { type: String },
       url: { type: String },

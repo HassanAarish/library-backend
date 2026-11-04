@@ -7,12 +7,12 @@ import { sendOtp, passwordResetEmail } from "../utils/emailClient.js";
 import { verifySocialToken } from "../utils/socialVerify.js";
 import { uploadFromUrl, removeFiles } from "./Common.Service.js";
 import { getEnv } from "../config/dotenv.js";
+import { audit } from "../utils/audit.js";
 import helper from "../utils/helper.js";
 
 // Maps a social provider to the User field that stores its account id.
 const PROVIDER_ID_FIELD = {
   google: "googleId",
-  apple: "appleId",
   facebook: "facebookId",
 };
 
@@ -31,11 +31,30 @@ const sanitizeUser = (user) => {
  * caller is forced through the /twofactor/verify challenge. This is what keeps
  * social / linked accounts from bypassing 2FA.
  */
-const issueSession = (user) => {
+const issueSession = (user, method) => {
+  const auditDetails = {
+    actor: user._id,
+    actorEmail: user.email,
+    metadata: { method },
+  };
+
   if (user.twoFactor?.enabled) {
+    audit("auth.login.2fa_challenge", auditDetails);
     return { twoFactorRequired: true, pendingToken: generatePendingToken(user) };
   }
+
+  audit("auth.login", auditDetails);
   return { user: sanitizeUser(user), token: generateToken(user) };
+};
+
+// Records a failed login attempt. `user` is undefined for unknown emails.
+const auditLoginFailure = (reason, { user, email, method = "email" }) => {
+  audit("auth.login", {
+    outcome: "failure",
+    actor: user?._id,
+    actorEmail: user?.email || email,
+    metadata: { method, reason, email },
+  });
 };
 
 // Where the password-reset link points (the frontend). Overridable via env.
@@ -43,18 +62,20 @@ const CLIENT_URL = getEnv("CLIENT_URL");
 
 const OTP_TTL_MS = 5 * 60 * 1000; // verification codes are valid for 5 minutes
 const RESEND_COOLDOWN_MS = 60 * 1000; // minimum gap between OTP (re)issues
+const MAX_OTP_ATTEMPTS = 5; // wrong guesses allowed per issued code
 
-function generateOTP() {
-  const uniqueNumber = Math.floor(100000 + Math.random() * 900000);
-  return uniqueNumber;
-}
+// Cryptographically secure 6-digit code.
+const generateOTP = () => crypto.randomInt(100000, 1000000);
 
 export const register = async (body, session = null) => {
-  const { name, email, password, profilePicture, role, authType } = body;
+  // `role` is intentionally NOT read from the body — every signup is a "user".
+  const { name, email, password, authType } = body;
 
   if (authType === "email") {
+    const lowerEmail = helper.lowercaseEmail(email);
+
     // 1. Check if user exists (Pass the session!)
-    const userExist = await User.findOne({ email }).session(session);
+    const userExist = await User.findOne({ email: lowerEmail }).session(session);
 
     if (userExist) {
       throw new ErrorResponse("User with the same email already exists", 401);
@@ -67,21 +88,17 @@ export const register = async (body, session = null) => {
     // 3. Create user
     const user = new User({
       name,
-      email: helper.lowercaseEmail(email),
+      email: lowerEmail,
       password,
       authType,
-      role: role || "user",
-      otp: { code: otp, expiry: expiry },
+      role: "user",
+      otp: { code: otp, expiry: expiry, attempts: 0 },
       isVerified: false,
     });
     await user.save({ session });
 
     // 4. Create User Preferences
-    // We link it via user._id and save the profilePicture object from Cloudinary
-    const preferences = new Preferences({
-      userId: user._id,
-      profilePicture: profilePicture || {}, // Save the {name, url, public_id} object
-    });
+    const preferences = new Preferences({ userId: user._id });
 
     await preferences.save({ session });
 
@@ -93,6 +110,13 @@ export const register = async (body, session = null) => {
       console.error("Failed to send OTP email:", err);
       throw new ErrorResponse("We couldn't send your verification email. Please try again.", 500);
     }
+
+    audit("auth.register", {
+      actor: user._id,
+      actorEmail: user.email,
+      target: { type: "User", id: user._id },
+      metadata: { method: "email" },
+    });
 
     return true;
   }
@@ -110,29 +134,49 @@ export const verifyOtp = async (body, session = null) => {
 
   const lowerEmail = helper.lowercaseEmail(email);
 
-  const user = await User.findOne({
-    email: lowerEmail,
-    "otp.code": otp,
-  }).session(session);
+  const user = await User.findOne({ email: lowerEmail }).session(session);
 
-  if (!user) {
-    throw new ErrorResponse("User not found or have been deleted.", 404);
+  if (!user || user.isVerified || !user.otp?.code) {
+    audit("auth.otp.verify", {
+      outcome: "failure",
+      actor: user?._id,
+      actorEmail: lowerEmail,
+      metadata: { reason: !user ? "unknown_email" : "no_pending_code" },
+    });
+    throw new ErrorResponse("Invalid or expired verification code.", 400);
   }
 
-  // Validate OTP existence and matching
-  if (user?.otp?.code != otp) {
-    throw new ErrorResponse("Invalid OTP", 400);
-  }
+  const auditBase = { actor: user._id, actorEmail: user.email };
 
   // Check if the OTP has expired
   if (user.otp.expiry < new Date()) {
     throw new ErrorResponse("OTP expired", 400);
   }
 
+  // Lock the code after too many wrong guesses (per account, not just per IP).
+  if ((user.otp.attempts || 0) >= MAX_OTP_ATTEMPTS) {
+    audit("auth.otp.locked", { ...auditBase, outcome: "failure" });
+    throw new ErrorResponse("Too many incorrect attempts. Please request a new code.", 429);
+  }
+
+  if (user.otp.code !== Number(otp)) {
+    // Written outside the request transaction — it's aborted on this 400, and
+    // the attempt counter must survive that.
+    await User.updateOne({ _id: user._id }, { $inc: { "otp.attempts": 1 } });
+    audit("auth.otp.verify", {
+      ...auditBase,
+      outcome: "failure",
+      metadata: { reason: "wrong_code", attempt: (user.otp.attempts || 0) + 1 },
+    });
+    throw new ErrorResponse("Invalid OTP", 400);
+  }
+
   // Clear OTP after successful verification and mark user as verified
   user.otp = undefined;
   user.isVerified = true;
   await user.save({ session });
+
+  audit("auth.otp.verify", auditBase);
 };
 
 export const resendOtp = async (body, session = null) => {
@@ -158,8 +202,10 @@ export const resendOtp = async (body, session = null) => {
 
   // Issue a fresh code (invalidating the previous one) and email it.
   const otp = generateOTP();
-  user.otp = { code: otp, expiry: new Date(Date.now() + OTP_TTL_MS) };
+  user.otp = { code: otp, expiry: new Date(Date.now() + OTP_TTL_MS), attempts: 0 };
   await user.save({ session });
+
+  audit("auth.otp.resend", { actor: user._id, actorEmail: user.email });
 
   // Fire-and-forget for the same timing/uniformity reasons as forgotPassword.
   sendOtp(user.email, otp).catch((err) => console.error("Failed to resend OTP email:", err));
@@ -173,10 +219,12 @@ export const login = async (body, session = null) => {
   const user = await User.findOne({ email: lowerEmail }).session(session).select("+password");
 
   if (!user) {
+    auditLoginFailure("unknown_email", { email: lowerEmail });
     throw new ErrorResponse("Invalid credentials", 401);
   }
 
   if (user.isBlocked) {
+    auditLoginFailure("blocked", { user, email: lowerEmail });
     throw new ErrorResponse("Your account has been suspended. Please contact support.", 403);
   }
 
@@ -184,22 +232,25 @@ export const login = async (body, session = null) => {
   // provider have no password and must use POST /auth/social — this also closes
   // the previous bypass where any social authType skipped the password check.
   if (!user.password) {
+    auditLoginFailure("social_account", { user, email: lowerEmail });
     throw new ErrorResponse(
-      "This account uses social sign-in. Please continue with Google, Apple, or Facebook.",
+      "This account uses social sign-in. Please continue with Google or Facebook.",
       400,
     );
   }
 
   const isMatch = await user.comparePassword(password);
   if (!isMatch) {
+    auditLoginFailure("wrong_password", { user, email: lowerEmail });
     throw new ErrorResponse("Invalid credentials", 401);
   }
 
   if (!user.isVerified) {
+    auditLoginFailure("unverified", { user, email: lowerEmail });
     throw new ErrorResponse("Please verify your email before logging in.", 403);
   }
 
-  return issueSession(user);
+  return issueSession(user, "email");
 };
 
 export const forgotPassword = async (body, session = null) => {
@@ -208,6 +259,14 @@ export const forgotPassword = async (body, session = null) => {
   const lowerEmail = helper.lowercaseEmail(email);
 
   const user = await User.findOne({ email: lowerEmail }).session(session);
+
+  // Logged either way — the response stays generic, but repeated requests for
+  // unknown emails are an enumeration signal worth seeing.
+  audit("auth.password.reset_requested", {
+    actor: user?._id,
+    actorEmail: lowerEmail,
+    metadata: { accountExists: Boolean(user) },
+  });
 
   // Enumeration-resistant: never reveal whether an email is registered. Unknown
   // accounts silently no-op; the controller returns the same generic message
@@ -238,11 +297,12 @@ export const forgotPassword = async (body, session = null) => {
 export const resetPassword = async (body, session = null) => {
   const { token, password } = body;
   const user = await User.findOne({
-    "resetPassword.token": token,
+    "resetPassword.token": String(token),
     "resetPassword.expiry": { $gt: Date.now() },
   }).session(session);
 
   if (!user) {
+    audit("auth.password.reset", { outcome: "failure", metadata: { reason: "invalid_token" } });
     throw new ErrorResponse("Invalid or Expired Link", 400);
   }
 
@@ -251,11 +311,13 @@ export const resetPassword = async (body, session = null) => {
   user.resetPassword = undefined;
 
   await user.save({ session });
+
+  audit("auth.password.reset", { actor: user._id, actorEmail: user.email });
   return true;
 };
 
 /**
- * Unified social sign-in for google | apple | facebook.
+ * Unified social sign-in for google | facebook.
  * Flow: verify provider token → log in existing provider user → else handle an
  * existing same-email (password) account via the ask-to-link handshake → else
  * create a fresh social user. Returns { user, token } or { linkRequired, email }.
@@ -269,16 +331,23 @@ export const socialLogin = async (body, session = null) => {
   }
 
   // 1. Verify the provider token → normalized identity.
-  const identity = await verifySocialToken(provider, token);
+  let identity;
+  try {
+    identity = await verifySocialToken(provider, token);
+  } catch (err) {
+    auditLoginFailure("invalid_provider_token", { method: provider });
+    throw err;
+  }
   const { providerId, email, emailVerified, name: providerName, picture } = identity;
 
   // 2. Returning provider user (matched by their provider id) → straight login.
   const byProvider = await User.findOne({ [idField]: providerId }).session(session);
   if (byProvider) {
     if (byProvider.isBlocked) {
+      auditLoginFailure("blocked", { user: byProvider, method: provider });
       throw new ErrorResponse("Your account has been suspended. Please contact support.", 403);
     }
-    return issueSession(byProvider);
+    return issueSession(byProvider, provider);
   }
 
   // Beyond this point we need an email to match or create an account.
@@ -295,11 +364,13 @@ export const socialLogin = async (body, session = null) => {
   const byEmail = await User.findOne({ email }).session(session);
   if (byEmail) {
     if (byEmail.isBlocked) {
+      auditLoginFailure("blocked", { user: byEmail, method: provider });
       throw new ErrorResponse("Your account has been suspended. Please contact support.", 403);
     }
 
     // Only ever link when the provider vouches for the email.
     if (!emailVerified) {
+      auditLoginFailure("unverified_provider_email", { user: byEmail, method: provider });
       throw new ErrorResponse(
         "An account with this email already exists. Please sign in with your password.",
         409,
@@ -315,6 +386,12 @@ export const socialLogin = async (body, session = null) => {
     if (!byEmail.isVerified) byEmail.isVerified = true;
     await byEmail.save({ session });
 
+    audit("auth.social.linked", {
+      actor: byEmail._id,
+      actorEmail: byEmail.email,
+      metadata: { provider },
+    });
+
     // If the linked account has no avatar yet, adopt the provider's (stored on
     // Cloudinary). Best-effort — never block the link on an avatar issue.
     if (picture) {
@@ -329,7 +406,7 @@ export const socialLogin = async (body, session = null) => {
       }
     }
 
-    return issueSession(byEmail);
+    return issueSession(byEmail, provider);
   }
 
   // 4. Brand-new social user — require a verified email to create one.
@@ -365,7 +442,14 @@ export const socialLogin = async (body, session = null) => {
     });
     await preferences.save({ session });
 
-    return issueSession(newUser);
+    audit("auth.register", {
+      actor: newUser._id,
+      actorEmail: newUser.email,
+      target: { type: "User", id: newUser._id },
+      metadata: { method: provider },
+    });
+
+    return issueSession(newUser, provider);
   } catch (err) {
     // DB write failed after the upload — remove the orphaned Cloudinary asset.
     if (avatar.public_id) await removeFiles(avatar.public_id).catch(() => {});

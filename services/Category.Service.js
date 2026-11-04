@@ -2,10 +2,13 @@ import Category from "../models/Category.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import helper from "../utils/helper.js";
 import cache from "../utils/cache.js";
+import { audit } from "../utils/audit.js";
 
 // Categories change rarely but are read often → a good cache-aside target.
 const CATEGORY_LIST_PREFIX = "categories:list:";
 const CATEGORY_LIST_TTL = 300; // seconds (5 minutes)
+
+const EDITABLE_FIELDS = ["name", "description", "status"];
 
 // Drop every cached category-list page after any write.
 const invalidateCategoryList = () => cache.delByPrefix(CATEGORY_LIST_PREFIX);
@@ -13,9 +16,9 @@ const invalidateCategoryList = () => cache.delByPrefix(CATEGORY_LIST_PREFIX);
 export const createCategory = async (body, userId, role, session = null) => {
   const { name, description } = body;
 
-  // Check if category already exists (case-insensitive)
+  // Check if category already exists (case-insensitive, literal match)
   const existing = await Category.findOne({
-    name: { $regex: new RegExp(`^${name}$`, "i") },
+    name: { $regex: `^${helper.escapeRegex(String(name).trim())}$`, $options: "i" },
   }).session(session);
 
   if (existing) {
@@ -31,20 +34,31 @@ export const createCategory = async (body, userId, role, session = null) => {
 
   const saved = await category.save({ session });
   await invalidateCategoryList();
+
+  audit(role === "admin" ? "category.create" : "category.propose", {
+    target: { type: "Category", id: saved._id },
+    metadata: { name },
+  });
+
   return saved;
 };
 
-export const getCategories = async (req) => {
+export const getCategories = async (req, role) => {
+  const isAdmin = role === "admin";
+
   const options = {
     sort: { name: 1 },
     searchFields: ["name", "slug"],
-    // If not admin, we hardcode the status filter to 'approved'
-    populate: { path: "proposedBy", select: "name email" },
+    // Admins may filter by any status; everyone else only ever sees approved ones.
+    filterFields: isAdmin ? ["status"] : [],
+    filters: isAdmin ? {} : { status: "approved" },
+    populate: { path: "proposedBy", select: isAdmin ? "name email" : "name" },
   };
 
-  // Cache-aside keyed by the query params that affect the result set.
-  const { page = 1, limit = 10, search = "", status = "" } = req.query;
-  const key = `${CATEGORY_LIST_PREFIX}${page}:${limit}:${search}:${status}`;
+  // Cache-aside keyed by everything that affects the result set.
+  const { page = 1, limit = 10, search = "" } = req.query;
+  const status = isAdmin ? req.query.status || "" : "approved";
+  const key = `${CATEGORY_LIST_PREFIX}${isAdmin ? "admin" : "user"}:${page}:${limit}:${search}:${status}`;
 
   return cache.wrap(key, CATEGORY_LIST_TTL, () => helper.paginate(Category, req, options));
 };
@@ -59,13 +73,20 @@ export const updateCategory = async (categoryId, body, session = null) => {
     throw new ErrorResponse("Invalid status value", 400);
   }
 
-  const updatedCategory = await Category.findByIdAndUpdate(categoryId, body, {
-    returnDocument: "after",
-    runValidators: true,
-    session,
-  });
+  const changes = helper.pick(body, EDITABLE_FIELDS);
+  const before = helper.pick(category.toObject(), Object.keys(changes));
+
+  // Saving the document (not findByIdAndUpdate) so the slug hook runs on rename.
+  category.set(changes);
+  const updatedCategory = await category.save({ session });
 
   await invalidateCategoryList();
+
+  audit("admin.category.update", {
+    target: { type: "Category", id: category._id },
+    metadata: { before, after: changes },
+  });
+
   return updatedCategory;
 };
 
@@ -79,5 +100,11 @@ export const deleteCategory = async (categoryId, session = null) => {
 
   await category.deleteOne({ session });
   await invalidateCategoryList();
+
+  audit("admin.category.delete", {
+    target: { type: "Category", id: category._id },
+    metadata: { name: category.name },
+  });
+
   return true;
 };

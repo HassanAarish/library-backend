@@ -5,7 +5,7 @@ import helper from "../utils/helper.js";
 // get User's profile
 export const getUserProfile = asyncHandler(async (req, res) => {
   const user = await userService.getUserProfile(req.userID);
-  return res.status(201).json({
+  return res.status(200).json({
     success: true,
     message: "User fetched successfully.",
     data: user,
@@ -21,7 +21,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   await userService.updateProfile(body, session);
 
-  return res.status(201).json({
+  return res.status(200).json({
     success: true,
     message: "Profile updated successfully.",
   });
@@ -72,13 +72,3 @@ export const removeProfilePicture = asyncHandler(async (req, res) => {
     message: "Profile picture removed successfully.",
   });
 });
-
-/*
- * 2FA (TOTP) controllers — disabled. The routes in User.Routes.js are commented
- * out and this code depends on packages that are not installed (`otpauth` for
- * `OTPAuth`, `qr-image` for `qr`). To re-enable: install those packages, import
- * them here, and uncomment both this block and the matching routes.
- *
- * export const enableTwoFactorAuth = asyncHandler(async (req, res, next) => { ... });
- * export const disableTwoFactorAuth = asyncHandler(async (req, res, next) => { ... });
- */

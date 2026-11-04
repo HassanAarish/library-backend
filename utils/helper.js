@@ -1,5 +1,7 @@
 import ErrorResponse from "./errorResponse.js";
 
+const MAX_PAGE_SIZE = 100;
+
 /**
  * Checks whether all required fields are present and valid.
  *
@@ -14,7 +16,7 @@ import ErrorResponse from "./errorResponse.js";
 const checkMandatoryFields = (fields, requiredFields) => {
   // Find fields that are missing or invalid
   const missingFields = requiredFields.filter((field) => {
-    const value = fields[field];
+    const value = fields?.[field];
 
     return (
       value === undefined || // field not provided
@@ -43,56 +45,122 @@ const checkMandatoryFields = (fields, requiredFields) => {
  * @returns {string} - The normalized email address in lowercase
  */
 const lowercaseEmail = (email) => {
-  return email.trim().toLowerCase();
+  return String(email).trim().toLowerCase();
+};
+
+/**
+ * Escape user input for safe use inside a RegExp / Mongo $regex, so search text
+ * is matched literally (no regex injection or catastrophic backtracking).
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Return a copy of `source` containing only the listed keys that are defined.
+ * Use it to whitelist client-supplied fields before writing them to the DB.
+ *
+ * @param {Object} source
+ * @param {Array<string>} keys
+ * @returns {Object}
+ */
+const pick = (source = {}, keys = []) =>
+  keys.reduce((acc, key) => {
+    if (source?.[key] !== undefined) acc[key] = source[key];
+    return acc;
+  }, {});
+
+/**
+ * Parse optional `from` / `to` query params into a Mongo date-range filter.
+ *
+ * @param {string} [from]
+ * @param {string} [to]
+ * @param {string} [field="createdAt"]
+ * @returns {Object} e.g. { createdAt: { $gte, $lte } } or {}
+ */
+const dateRangeFilter = (from, to, field = "createdAt") => {
+  const range = {};
+
+  for (const [op, raw] of [
+    ["$gte", from],
+    ["$lte", to],
+  ]) {
+    if (raw === undefined || raw === "") continue;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) {
+      throw new ErrorResponse(`Invalid date: ${raw}`, 400);
+    }
+    range[op] = date;
+  }
+
+  return Object.keys(range).length ? { [field]: range } : {};
 };
 
 /**
  * Generic Pagination Helper for Mongoose models.
+ *
+ * Only query params named in `filterFields` become filters — anything else the
+ * client sends is ignored, so callers can't filter on hidden fields (tokens,
+ * secrets) or override server-side rules. `filters` are applied last and always
+ * win (e.g. { status: "approved" } on a public listing).
+ *
  * @param {mongoose.Model} model - The Mongoose model to query
  * @param {Object} req - The Express request object
- * @param {Object} options - Configuration for populate, select, and sort
+ * @param {Object} options - populate, select, sort, searchFields, filterFields, filters
  */
 const paginate = async (model, req, options = {}) => {
-  const { populate, select, sort = { createdAt: -1 }, searchFields = [] } = options;
+  const {
+    populate,
+    select,
+    sort = { createdAt: -1 },
+    searchFields = [],
+    filterFields = [],
+    filters: forcedFilters = {},
+  } = options;
 
-  // 1. Parse Page and Limit
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
+  // 1. Parse Page and Limit (bounded so one request can't dump a whole collection)
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), MAX_PAGE_SIZE);
   const skip = (page - 1) * limit;
 
-  // 2. Extract and separate Search from Filters
-  const queryObj = { ...req.query };
-  const excludedFields = ["page", "limit", "sort", "fields", "search"];
-  excludedFields.forEach((el) => delete queryObj[el]);
+  // 2. Whitelisted filters from the query string (plain strings only)
+  const filters = {};
+  for (const field of filterFields) {
+    const value = req.query[field];
+    if (typeof value === "string" && value !== "") {
+      filters[field] = value;
+    }
+  }
 
-  // 3. Handle Global Search (Regex)
-  let filters = { ...queryObj };
-
-  if (req.query.search && searchFields?.length > 0) {
+  // 3. Handle Global Search (escaped, case-insensitive)
+  const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+  if (search && searchFields.length > 0) {
+    const pattern = escapeRegex(search);
     filters.$or = searchFields.map((field) => ({
-      [field]: { $regex: req.query.search, $options: "i" }, // "i" for case-insensitive
+      [field]: { $regex: pattern, $options: "i" },
     }));
   }
 
-  // 4. Build Query
+  // 4. Server-enforced filters override anything from the client
+  Object.assign(filters, forcedFilters);
+
+  // 5. Build Query
   let query = model.find(filters);
 
-  // Apply Sorting
   if (sort) {
     query = query.sort(sort);
   }
 
-  // Apply Select (Field limiting)
   if (select) {
     query = query.select(select);
   }
 
-  // Apply Populate (Important for Category/User refs)
   if (populate) {
     query = query.populate(populate);
   }
 
-  // 4. Execute Query and Count in parallel for performance
+  // 6. Execute Query and Count in parallel for performance
   const [results, totalDocs] = await Promise.all([
     query.skip(skip).limit(limit).lean(), // .lean() for faster read-only queries
     model.countDocuments(filters),
@@ -112,5 +180,8 @@ const paginate = async (model, req, options = {}) => {
 export default {
   checkMandatoryFields,
   lowercaseEmail,
+  escapeRegex,
+  pick,
+  dateRangeFilter,
   paginate,
 };

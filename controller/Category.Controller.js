@@ -16,7 +16,7 @@ export const createCategory = asyncHandler(async (req, res) => {
 });
 
 export const getCategories = asyncHandler(async (req, res) => {
-  const result = await categoryService.getCategories(req);
+  const result = await categoryService.getCategories(req, req.role);
 
   return res.status(200).json({
     success: true,

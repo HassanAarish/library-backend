@@ -21,7 +21,7 @@ const UserSchema = new mongoose.Schema(
     },
     authType: {
       type: String,
-      enum: ["email", "google", "facebook", "apple"],
+      enum: ["email", "google", "facebook"],
       default: "email",
     },
     googleId: {
@@ -30,11 +30,6 @@ const UserSchema = new mongoose.Schema(
       sparse: true,
     },
     facebookId: {
-      type: String,
-      unique: true,
-      sparse: true,
-    },
-    appleId: {
       type: String,
       unique: true,
       sparse: true,
@@ -53,7 +48,10 @@ const UserSchema = new mongoose.Schema(
     otp: {
       code: { type: Number },
       expiry: { type: Date },
+      attempts: { type: Number, default: 0 },
     },
+    // Tokens issued before this moment are rejected by verifyToken.
+    passwordChangedAt: { type: Date },
     role: {
       type: String,
       enum: ["admin", "user"],
@@ -82,6 +80,13 @@ UserSchema.pre("save", async function () {
 
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+
+  // A changed password invalidates every existing session. Backdated by 1s
+  // because JWT `iat` has second precision — a token issued right after this
+  // save must still count as newer.
+  if (!this.isNew) {
+    this.passwordChangedAt = new Date(Date.now() - 1000);
+  }
 });
 
 /**

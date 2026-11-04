@@ -2,6 +2,7 @@ import User from "../../models/User.Model.js";
 import Preferences from "../../models/Preferences.Model.js";
 import mongoose from "mongoose";
 import { writeLog } from "../../utils/fileLogger.js";
+import { audit } from "../../utils/audit.js";
 
 export const cleanupUnverifiedUsers = async () => {
   // Ensure we have a connection before running
@@ -15,9 +16,16 @@ export const cleanupUnverifiedUsers = async () => {
 
   try {
     console.log("🚀 ~ Running cleanup task...");
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const now = new Date();
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
 
-    const filter = { isVerified: false, createdAt: { $lt: tenMinutesAgo } };
+    // Older than 10 minutes AND no code still valid — a user who just asked
+    // for a new OTP keeps their account until that code expires.
+    const filter = {
+      isVerified: false,
+      createdAt: { $lt: tenMinutesAgo },
+      $or: [{ "otp.expiry": { $lt: now } }, { "otp.expiry": { $exists: false } }],
+    };
 
     // 1. Fetch the users first — deleteMany only returns a count, so we read
     //    the docs now to know exactly who gets removed (for the audit log).
@@ -44,6 +52,11 @@ export const cleanupUnverifiedUsers = async () => {
         "deleted-users.log",
         `Deleted unverified user | id=${u._id} | name=${u.name} | email=${u.email} | createdAt=${u.createdAt.toISOString()}`,
       );
+      audit("system.user.delete_unverified", {
+        actorEmail: "system",
+        target: { type: "User", id: u._id },
+        metadata: { name: u.name, email: u.email, createdAt: u.createdAt },
+      });
     });
 
     console.log(`🚀 ~ Deleted ${result.deletedCount} unverified users.`);

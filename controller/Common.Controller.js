@@ -1,10 +1,8 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
 import * as commonService from "../services/Common.Service.js";
 
-export const upload = asyncHandler(async (req, res, next) => {
-  const results = await commonService.uploadFiles(req.files);
-
-  req.cloudinaryCleanupQueue = results.map((file) => file.public_id);
+export const upload = asyncHandler(async (req, res) => {
+  const results = await commonService.uploadFiles(req.files, req.userID);
 
   res.status(200).json({
     success: true,
@@ -13,12 +11,16 @@ export const upload = asyncHandler(async (req, res, next) => {
   });
 });
 
-// Remove one or more uploaded assets from Cloudinary.
+// Remove one or more of the caller's uploaded assets from Cloudinary.
 // Body: { public_id: "..." } or { publicIds: ["...", "..."] }
 export const remove = asyncHandler(async (req, res) => {
   const { publicIds, public_id } = req.body;
 
-  const results = await commonService.removeFiles(publicIds ?? public_id);
+  const results = await commonService.removeOwnedFiles(
+    publicIds ?? public_id,
+    req.userID,
+    req.role,
+  );
 
   res.status(200).json({
     success: true,

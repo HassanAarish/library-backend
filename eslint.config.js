@@ -3,11 +3,7 @@ import globals from "globals";
 
 export default [
   {
-    ignores: [
-      "node_modules",
-      "config/logs",
-      "function.js", // throwaway scratch script
-    ],
+    ignores: ["node_modules", "config/logs"],
   },
   {
     files: ["**/*.js"],

@@ -19,7 +19,7 @@ router.post("/forgot-password", emailLimiter, inTransaction, authController.forg
 
 router.post("/reset-password", authLimiter, inTransaction, authController.resetPassword);
 
-// Unified social sign-in (google | apple | facebook). Body: { provider, token, name?, link? }
+// Unified social sign-in (google | facebook). Body: { provider, token, name?, link? }
 router.post("/social", authLimiter, inTransaction, authController.socialLogin);
 
 // router.post("/verify-login", inTransaction, authController.verifyTwoFactorAuth);

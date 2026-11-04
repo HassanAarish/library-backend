@@ -8,7 +8,7 @@ This service is the API half of a two-part app. The React SPA lives in
 `../library-fronend`.
 
 > **Highlight:** the authentication system is the centerpiece — email/password
-> with OTP email verification, social login (Google / Facebook / Apple),
+> with OTP email verification, social login (Google / Facebook),
 > account linking, and TOTP two-factor auth — all hardened against the usual
 > pitfalls (enumeration, timing, 2FA bypass via a second login door).
 
@@ -22,7 +22,7 @@ This service is the API half of a two-part app. The React SPA lives in
 | Framework | **Express 5** |
 | Database | **MongoDB** + **Mongoose 9** |
 | Auth | **JWT** (`jsonwebtoken`), **bcryptjs** |
-| Social login | `google-auth-library`, `apple-signin-auth`, Facebook Graph API |
+| Social login | `google-auth-library`, Facebook Graph API |
 | 2FA | `otpauth` (TOTP) + `qrcode` |
 | Email | **Nodemailer** |
 | Media | **Cloudinary** (image/file storage) |
@@ -56,11 +56,17 @@ routes/X.Routes.js  →  controller/X.Controller.js  →  services/X.Service.js 
   responses. Throw `new ErrorResponse(message, statusCode)` anywhere.
 
 ### Cross-cutting middleware
+- **`requestLogger`** — first middleware: assigns an `X-Request-Id`, opens the
+  per-request context used by `audit()`, and records every request (see
+  [Activity logging](#-activity-logging)).
 - **`verifyToken`** — validates the `Bearer` JWT, re-loads the user to enforce
-  `isBlocked`, and attaches `req.userID` / `req.role` / `req.userEmail`.
+  `isBlocked`, reads the **role from the DB** (not the token), rejects tokens
+  issued before the last password change, and attaches `req.userID` /
+  `req.role` / `req.userEmail`.
 - **`verifyRole("admin", …)`** — role gate (runs after `verifyToken`).
-- **`inTransaction`** — opens a Mongoose session, commits/aborts automatically
-  based on the response status, and rolls back orphaned Cloudinary uploads.
+- **`inTransaction`** — opens a Mongoose session and **commits before the
+  response is sent** (a failed commit becomes a 500, never a false success);
+  error responses abort and roll back orphaned Cloudinary uploads.
 - **Rate limiting & caching** — Redis-backed when `REDIS_URL` is set, otherwise
   in-memory (the app runs with zero external infra).
 
@@ -98,21 +104,21 @@ POST /auth/reset-password   { token, password }
 the email exists) and **timing-resistant** (the email is sent fire-and-forget so
 the real-account path isn't measurably slower).
 
-### 3. Social login (Google / Facebook / Apple)
+### 3. Social login (Google / Facebook)
 
-One unified endpoint. The frontend obtains a provider token (Google/Apple
+One unified endpoint. The frontend obtains a provider token (Google
 `id_token`, Facebook access token) and posts it here:
 
 ```
-POST /auth/social   { provider: "google" | "apple" | "facebook", token, name?, link? }
+POST /auth/social   { provider: "google" | "facebook", token, name?, link? }
 ```
 
-`utils/socialVerify.js` verifies the token **server-side** — Google & Apple via
+`utils/socialVerify.js` verifies the token **server-side** — Google via
 JWT signature against the providers' public keys, Facebook via the Graph API
 (`debug_token` confirms the token was minted for *this* app). It returns a
 normalized identity, then `Auth.Service.socialLogin`:
 
-1. **Finds the user by provider id** (`googleId` / `facebookId` / `appleId`) → log in.
+1. **Finds the user by provider id** (`googleId` / `facebookId`) → log in.
 2. **Else, if a same-email account exists** → an **ask-to-link handshake**:
    returns `{ linkRequired, email }`; the client confirms and re-sends with
    `link: true` to attach the provider (gated on `emailVerified`).
@@ -157,6 +163,53 @@ token.
 - `/auth/login` is email-only — the old "any social `authType` skips the password" **bypass is closed**.
 - 2FA enforced across **all** login paths; the TOTP **secret never leaves the server** (`sanitizeUser` + the profile query strip it, along with OTP/reset tokens).
 - **Rate limiting** on auth routes — `authLimiter` (10 / 15 min: login, verify, reset), `emailLimiter` (5 / 15 min: register, forgot, resend), plus a global 200/min safety net.
+- Signup **cannot set `role`** — every new account is a `user`.
+- OTPs use `crypto.randomInt` and **lock after 5 wrong guesses per code** (per account, on top of the per-IP limit).
+- Changing or resetting a password **signs out every existing session**.
+- Admin user endpoints never return passwords, OTPs, reset tokens or 2FA secrets.
+- List endpoints only filter on whitelisted fields, escape search text, and cap `limit` at 100.
+
+---
+
+## 🕵️ Activity logging
+
+Everything that happens on the API is recorded in MongoDB so suspicious
+behaviour can be investigated later. Two complementary logs, linked by
+`requestId`:
+
+| | `RequestLog` | `AuditLog` |
+|---|---|---|
+| What | Every HTTP request | Named security & business events |
+| Fields | method, path, query, body (writes only), uploaded file names, status, duration, user, role, IP, user agent, error | action, outcome, severity, actor, target, metadata, IP, user agent |
+| Retention | `REQUEST_LOG_RETENTION_DAYS` (default 90), TTL index | Forever; **append-only** (update/delete are blocked in the model) |
+
+**Audited events** include: `auth.register`, `auth.login` (success + every
+failure reason: `unknown_email`, `wrong_password`, `blocked`, `unverified`,
+`social_account`, 2FA `wrong_code`), `auth.otp.*`, `auth.password.*`,
+`auth.2fa.*`, `auth.social.linked`, `auth.token.invalid`,
+`auth.blocked_user_access`, `authz.denied`, `security.rate_limited`,
+`user.profile.*`, `user.password.change`, `upload.*`, `book.*`, `category.*`,
+`review.create`, `admin.*`, `system.user.delete_unverified`.
+
+Rules:
+- Secrets are **always redacted** (`password`, `token`, `otp`, `code`, `secret`,
+  `authorization`, …) and payloads are size-capped (`utils/redact.js`).
+- Logging is **fire-and-forget**: it never fails or slows a request. Audit
+  writes run *outside* the request transaction, so failed attempts are kept even
+  though their transaction rolls back. If Mongo is down, entries fall back to
+  `config/logs/audit-fallback.log` / `request-fallback.log`.
+- Call `audit("domain.action", { outcome, target, metadata })` from any service;
+  actor, IP, user agent and request id are filled in from the request context.
+
+Admin endpoints (read-only — there is no API to edit or delete logs):
+
+```
+GET /admin/audit-logs    ?action&outcome&severity&actor&ip&requestId&target.id&search&from&to&page&limit
+GET /admin/request-logs  ?user&ip&method&status&requestId&search(path)&from&to&page&limit
+```
+
+Every error response also returns its `requestId`, so a user's complaint can be
+traced straight to the matching log entries.
 
 ---
 
@@ -164,16 +217,25 @@ token.
 
 - **Caching** (`utils/cache.js`) — `cache.wrap(key, ttl, fn)` cache-aside with
   `delByPrefix` invalidation; Redis or in-memory. Applied to the category list.
-- **Uploads** — `POST /common/upload` (multipart) streams to Cloudinary;
-  `POST /common/remove` deletes by `public_id`. `uploadFromUrl` imports a remote
-  image (e.g. a social avatar) into Cloudinary for a durable copy.
+- **Uploads** — `POST /common/upload` (authenticated, multipart; JPEG/PNG/WebP,
+  PDF, EPUB, DOCX) streams to Cloudinary and records each file as an `Asset`
+  owned by the uploader. `POST /common/remove` deletes only the caller's own
+  assets (admins: any). Profile pictures and book files must reference an asset
+  the user owns; their URLs come from the `Asset` record, never the request.
+  `uploadFromUrl` imports a remote image (e.g. a social avatar) into Cloudinary
+  for a durable copy.
 - **Profile management** — update profile/preferences, change password, manage
   the profile picture.
 - **Cron** — cleans up unverified users older than 10 minutes (and their
   orphaned Preferences), logging each deletion to `config/logs/deleted-users.log`.
-- **Domain models** — `User`, `Book`, `Category`, `Rental` (Stripe-backed),
-  `Review`, `Subscription`, `Notification`, `Preferences`. Books & categories use
-  a pending → approved/rejected moderation workflow gated behind admin role.
+- **Domain models** — `User`, `Book`, `Category`, `Rental`, `Review`,
+  `Subscription`, `Notification`, `Preferences`, `Asset`, `AuditLog`,
+  `RequestLog`. Books & categories use a pending → approved/rejected moderation
+  workflow gated behind admin role. A book's `file` is `select: false` and is
+  never returned by list endpoints.
+- **Rentals** — the old `POST /rental` endpoint is disabled (it trusted
+  client-supplied payment data). It will be replaced by a reservation +
+  verified-payment flow.
 
 ---
 
@@ -184,12 +246,12 @@ library-backend/
 ├── config/          dotenv, db (Mongo), redis (optional), morgan logger
 ├── controller/      thin request handlers (one per domain)
 ├── cron/            scheduled jobs (unverified-user cleanup)
-├── middlewares/     verifyToken, verifyRole, inTransaction, rateLimiter, asyncHandler, errorHandler
+├── middlewares/     requestLogger, verifyToken, verifyRole, inTransaction, rateLimiter, asyncHandler, errorHandler
 ├── models/          Mongoose schemas
 ├── routes/          *.Routes.js (auto-mounted by filename)
 ├── scripts/         one-off maintenance (e.g. sync-indexes.js)
 ├── services/        business logic + DB access
-├── utils/           emailClient, socialVerify, twoFactor, cache, generateTokens, fileLogger, helper, errorResponse
+├── utils/           audit, requestContext, redact, emailClient, socialVerify, twoFactor, cache, generateTokens, fileLogger, helper, errorResponse
 └── server.js        app entry
 ```
 
@@ -207,6 +269,10 @@ MONGO_URI=mongodb+srv://...
 SECRET_KEY=<long-random-string>
 ACCESS_TOKEN_EXPIRATION=30d
 CLIENT_URL=http://localhost:5173   # used to build the password-reset link
+# CORS_ORIGINS=https://a.pk,https://b.pk   # optional; allowed origins, defaults to CLIENT_URL
+
+# Activity logging (optional)
+# REQUEST_LOG_RETENTION_DAYS=90   # how long per-request logs are kept
 
 # Email (SMTP) — used for OTP + password-reset
 EMAIL=<smtp-account>
@@ -221,7 +287,6 @@ CLOUDINARY_API_SECRET=...
 
 # Social login
 GOOGLE_CLIENT_ID=...
-APPLE_CLIENT_ID=...            # (Apple deferred — needs a paid Apple Developer account)
 FACEBOOK_APP_ID=...
 FACEBOOK_APP_SECRET=...
 
@@ -230,11 +295,10 @@ TWO_FA_ISSUER=LibraryHub       # name shown in the authenticator app
 
 # Redis (optional) — enables Redis-backed rate limiting + caching
 REDIS_URL=rediss://default:<pwd>@<host>:6379   # e.g. a free Upstash DB
-
-# Stripe (rentals)
-STRIPE_PUBLISH_KEY=...
-STRIPE_SECRET_KEY=...
 ```
+
+> Payments: the first launch is Pakistan-only, so there is no Stripe
+> integration. `STRIPE_*` keys are unused for now.
 
 > Without `REDIS_URL`, rate limiting & caching fall back to in-memory — fine for
 > a single instance. The `PG_ADMIN_*` keys are unused legacy (the app is
@@ -274,7 +338,7 @@ If you change a `unique`/`sparse` index on a model, run the one-off
 | POST | `/auth/verify-otp` | — | Verify the email OTP |
 | POST | `/auth/resend-otp` | — | Re-issue an OTP (60s cooldown) |
 | POST | `/auth/login` | — | Email/password login |
-| POST | `/auth/social` | — | Google / Facebook / Apple sign-in + linking |
+| POST | `/auth/social` | — | Google / Facebook sign-in + linking |
 | POST | `/auth/forgot-password` | — | Email a reset link |
 | POST | `/auth/reset-password` | — | Reset password by token |
 | POST | `/twofactor/setup` | ✅ | Begin 2FA setup (returns QR) |
@@ -286,10 +350,13 @@ If you change a `unique`/`sparse` index on a model, run the one-off
 | PATCH | `/user/password-update` | ✅ | Change password |
 | PATCH | `/user/profile-picture` | ✅ | Set/replace avatar |
 | DELETE | `/user/remove-profile-picture` | ✅ | Remove avatar |
-| POST | `/common/upload` | — | Multipart upload to Cloudinary |
-| POST | `/common/remove` | ✅ | Delete Cloudinary assets |
+| POST | `/common/upload` | ✅ | Multipart upload to Cloudinary (records ownership) |
+| POST | `/common/remove` | ✅ | Delete your own Cloudinary assets (admin: any) |
+| POST | `/review/:bookId` | ✅ | Review a book you have rented |
+| GET | `/admin/audit-logs` | admin | Query the audit trail |
+| GET | `/admin/request-logs` | admin | Query the per-request log |
 
-Other domain routes (`/book`, `/category`, `/review`, `/rental`, `/admin`)
+Other domain routes (`/book`, `/category`, `/admin`)
 follow the same layered pattern; books & categories use the admin moderation
 workflow.
 

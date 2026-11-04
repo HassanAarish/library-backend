@@ -1,5 +1,6 @@
 import { RateLimiterRedis, RateLimiterMemory } from "rate-limiter-flexible";
 import redis from "../config/redis.js";
+import { audit } from "../utils/audit.js";
 
 /**
  * Builds an Express rate-limit middleware. Backed by Redis when available, with
@@ -35,6 +36,16 @@ const createLimiter = ({ keyPrefix, points, duration, blockDuration }) => {
         if (rejection instanceof Error) {
           console.error("Rate limiter error:", rejection.message);
           return next();
+        }
+
+        // Audit only the request that first crosses the limit — a flood of
+        // blocked retries would otherwise flood the audit log too. Every 429 is
+        // still in the request log.
+        if (rejection.consumedPoints === points + 1) {
+          audit("security.rate_limited", {
+            outcome: "failure",
+            metadata: { limiter: keyPrefix, path: req.originalUrl, method: req.method },
+          });
         }
 
         const retryAfter = Math.max(1, Math.ceil((rejection.msBeforeNext || 0) / 1000));

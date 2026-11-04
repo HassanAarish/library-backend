@@ -1,6 +1,7 @@
 import express from "express";
 import cloudinary from "cloudinary";
 import cors from "cors";
+import helmet from "helmet";
 import path from "path";
 import errorHandler from "./middlewares/errorHandler.js";
 import router from "./routes/indexRoutes.js";
@@ -11,6 +12,7 @@ import "./cron/index.js";
 import setupMorganLogger from "./config/morgan.js";
 import { getEnv } from "./config/dotenv.js";
 import { globalLimiter } from "./middlewares/rateLimiter.js";
+import requestLogger, { flushRequestLogs } from "./middlewares/requestLogger.js";
 import verifyToken from "./middlewares/verifyToken.js";
 import verifyRole from "./middlewares/verifyRole.js";
 
@@ -20,11 +22,22 @@ const CLOUDINARY_CLOUD_NAME = getEnv("CLOUDINARY_CLOUD_NAME");
 const CLOUDINARY_API_KEY = getEnv("CLOUDINARY_API_KEY");
 const CLOUDINARY_API_SECRET = getEnv("CLOUDINARY_API_SECRET");
 
+// Comma-separated list of allowed frontend origins (no trailing slash).
+const CORS_ORIGINS = (getEnv("CORS_ORIGINS") || getEnv("CLIENT_URL") || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const app = express();
 
 // Trust the first proxy (Render/Heroku/etc.) so req.ip reflects the real client
-// IP — required for accurate per-IP rate limiting.
+// IP — required for accurate per-IP rate limiting and activity logs.
 app.set("trust proxy", 1);
+
+// First: every request gets an id + context and is recorded in the activity log.
+app.use(requestLogger);
+
+app.use(helmet());
 
 setupMorganLogger(app);
 
@@ -38,15 +51,11 @@ cloudinary.v2.config({
 
 app.use(
   cors({
-    // 1. Specify your exact frontend URL (no trailing slash)
-    origin: "http://localhost:5173",
-
-    // 2. Allow cookies/authorization headers to be sent
+    origin: CORS_ORIGINS,
     credentials: true,
-
-    // 3. Optional: Specify allowed methods
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["X-Request-Id"],
   }),
 );
 
@@ -63,9 +72,10 @@ app.use(
   express.static(path.join(__dirname, "config", "logs")),
 );
 
-app.use(express.json({ limit: "50mb" }));
+// File uploads go through multer, so JSON bodies never need to be large.
+app.use(express.json({ limit: "1mb" }));
 
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.urlencoded({ limit: "1mb", extended: true }));
 
 // Loose global safety net (200 req/min/IP). Strict per-endpoint limits live on
 // the auth routes themselves.
@@ -87,5 +97,15 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`🚀 ~ Server running in ${NODE_ENV} mode on port ${PORT}`);
 });
+
+// Write any buffered request logs before the process exits.
+const shutdown = async (signal) => {
+  console.log(`${signal} received — flushing activity logs...`);
+  await flushRequestLogs();
+  process.exit(0);
+};
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 export default app;

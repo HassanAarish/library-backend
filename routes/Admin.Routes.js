@@ -10,6 +10,11 @@ router.get("/users", verifyToken, verifyRole("admin"), adminController.getUserLi
 
 router.get("/user/:userId", verifyToken, verifyRole("admin"), adminController.getUserData);
 
+// Activity logs (read-only — there is deliberately no endpoint to edit or delete them).
+router.get("/audit-logs", verifyToken, verifyRole("admin"), adminController.getAuditLogs);
+
+router.get("/request-logs", verifyToken, verifyRole("admin"), adminController.getRequestLogs);
+
 router.patch(
   "/toggle-user-block/:userId",
   verifyToken,

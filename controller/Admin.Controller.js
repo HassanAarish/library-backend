@@ -25,6 +25,24 @@ export const getUserData = asyncHandler(async (req, res) => {
   });
 });
 
+export const getAuditLogs = asyncHandler(async (req, res) => {
+  const data = await adminService.getAuditLogs(req);
+
+  return res.status(200).json({
+    success: true,
+    data,
+  });
+});
+
+export const getRequestLogs = asyncHandler(async (req, res) => {
+  const data = await adminService.getRequestLogs(req);
+
+  return res.status(200).json({
+    success: true,
+    data,
+  });
+});
+
 export const toggleUserBlock = asyncHandler(async (req, res) => {
   const session = req.transaction;
   const { userId } = req.params;

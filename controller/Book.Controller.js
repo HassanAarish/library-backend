@@ -19,9 +19,7 @@ export const createBookRequest = asyncHandler(async (req, res) => {
 });
 
 export const getMyBooks = asyncHandler(async (req, res) => {
-  const userId = req.userID;
-  const newReq = { ...req, query: { ...req.query, uploader: userId } };
-  const result = await bookService.getMyBooks(newReq);
+  const result = await bookService.getMyBooks(req, req.userID);
 
   return res.status(200).json({
     success: true,
@@ -30,12 +28,7 @@ export const getMyBooks = asyncHandler(async (req, res) => {
 });
 
 export const getAllBooks = asyncHandler(async (req, res) => {
-  const newReq = {
-    ...req,
-    query: { ...req.query, status: "approved", isAvailable: true },
-  };
-
-  const result = await bookService.getAllBooks(newReq);
+  const result = await bookService.getAllBooks(req);
 
   return res.status(200).json({
     success: true,

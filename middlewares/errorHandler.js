@@ -1,5 +1,7 @@
 import ErrorResponse from "../utils/errorResponse.js";
-import morgan from "morgan";
+import { getEnv } from "../config/dotenv.js";
+
+const IS_PRODUCTION = getEnv("NODE_ENV") === "production";
 
 // Middleware for handling errors
 
@@ -12,7 +14,7 @@ const errorHandler = (err, req, res, next) => {
 
   // 1. Mongoose Duplicate Key (Error Code 11000)
   if (err.code === 11000) {
-    const field = Object.keys(err.keyValue)[0];
+    const field = Object.keys(err.keyValue || {})[0] || "value";
     const message = `Duplicate field value entered: ${field}. Please use another value.`;
     error = new ErrorResponse(message, 400);
   }
@@ -43,25 +45,33 @@ const errorHandler = (err, req, res, next) => {
     error = new ErrorResponse(message, 400);
   }
 
-  // --- LOGGING LOGIC ---
-  const errorDetails = [
-    `Error: ${error.message || "Internal Server Error"}`,
-    `Stack: ${err.stack || "No stack trace available"}`,
-    `IP: ${req.ip}`,
-    `URL: ${req.originalUrl}`,
-    `Method: ${req.method}`,
-    `Status Code: ${error.statusCode || 500}`,
-  ].join(" | ");
+  // 6. Malformed JSON body
+  if (err.type === "entity.parse.failed") {
+    error = new ErrorResponse("Malformed JSON in request body.", 400);
+  }
 
-  // Custom Morgan token for errors
-  morgan.token("error-details", () => errorDetails);
-  morgan(":method :url :status :error-details")(req, res, () => {});
+  // 7. Body too large
+  if (err.type === "entity.too.large") {
+    error = new ErrorResponse("Request body is too large.", 413);
+  }
 
-  // Send the error response to the client
-  res.status(error.statusCode || 500).json({
+  const statusCode = error.statusCode || 500;
+
+  // The real reason always goes to the activity log (RequestLog.error)…
+  res.locals.errorMessage =
+    statusCode >= 500 && err.stack ? err.stack : error.message || err.message;
+
+  // …but unexpected 500s never leak internals to the client in production.
+  const clientMessage =
+    statusCode >= 500 && IS_PRODUCTION
+      ? "Internal Server Error"
+      : error.message || "Internal Server Error";
+
+  res.status(statusCode).json({
     success: false,
     // Keep the structure consistent with your other APIs
-    error: error.message || "Internal Server Error",
+    error: clientMessage,
+    requestId: req.requestId,
   });
 };
 

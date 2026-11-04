@@ -1,10 +1,8 @@
 import { OAuth2Client } from "google-auth-library";
-import appleSignin from "apple-signin-auth";
 import { getEnv } from "../config/dotenv.js";
 import ErrorResponse from "./errorResponse.js";
 
 const GOOGLE_CLIENT_ID = getEnv("GOOGLE_CLIENT_ID");
-const APPLE_CLIENT_ID = getEnv("APPLE_CLIENT_ID");
 const FACEBOOK_APP_ID = getEnv("FACEBOOK_APP_ID");
 const FACEBOOK_APP_SECRET = getEnv("FACEBOOK_APP_SECRET");
 
@@ -33,27 +31,6 @@ const verifyGoogleToken = async (token) => {
     emailVerified: Boolean(payload.email_verified),
     name: payload.name,
     picture: payload.picture,
-  };
-};
-
-// Apple: verify the id_token against Apple's JWKS. Apple does NOT include the
-// user's name in the token (it's sent separately on first sign-in), so name is
-// supplied by the caller.
-const verifyAppleToken = async (token) => {
-  let payload;
-  try {
-    payload = await appleSignin.verifyIdToken(token, { audience: APPLE_CLIENT_ID });
-  } catch {
-    throw new ErrorResponse("Invalid or expired Apple token", 401);
-  }
-
-  return {
-    providerId: payload.sub,
-    email: payload.email?.toLowerCase(),
-    // Apple returns email_verified as the string "true" (or a boolean).
-    emailVerified: payload.email_verified === true || payload.email_verified === "true",
-    name: undefined,
-    picture: undefined,
   };
 };
 
@@ -104,7 +81,6 @@ const verifyFacebookToken = async (token) => {
 
 const VERIFIERS = {
   google: verifyGoogleToken,
-  apple: verifyAppleToken,
   facebook: verifyFacebookToken,
 };
 

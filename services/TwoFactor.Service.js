@@ -4,6 +4,7 @@ import ErrorResponse from "../utils/errorResponse.js";
 import { getEnv } from "../config/dotenv.js";
 import { generateToken } from "../utils/generateTokens.js";
 import { generateTwoFactorSecret, verifyTwoFactorCode } from "../utils/twoFactor.js";
+import { audit } from "../utils/audit.js";
 
 const SECRET_KEY = getEnv("SECRET_KEY");
 
@@ -20,6 +21,8 @@ export const setup = async (userId, email, session = null) => {
   user.twoFactor = { enabled: false, secret };
   await user.save({ session });
 
+  audit("auth.2fa.setup_started");
+
   return { qrCode, otpauthUrl };
 };
 
@@ -34,11 +37,14 @@ export const enable = async (userId, code, session = null) => {
     throw new ErrorResponse("Start 2FA setup before enabling it.", 400);
   }
   if (!verifyTwoFactorCode(user.twoFactor.secret, code)) {
+    audit("auth.2fa.enable", { outcome: "failure", metadata: { reason: "wrong_code" } });
     throw new ErrorResponse("Invalid code. Please try again.", 400);
   }
 
   user.twoFactor.enabled = true;
   await user.save({ session });
+
+  audit("auth.2fa.enable");
   return true;
 };
 
@@ -50,11 +56,15 @@ export const disable = async (userId, code, session = null) => {
     throw new ErrorResponse("Two-factor authentication is not enabled.", 400);
   }
   if (!verifyTwoFactorCode(user.twoFactor.secret, code)) {
+    audit("auth.2fa.disable", { outcome: "failure", metadata: { reason: "wrong_code" } });
     throw new ErrorResponse("Invalid code. Please try again.", 400);
   }
 
   user.twoFactor = { enabled: false, secret: undefined };
   await user.save({ session });
+
+  // Turning off a second factor is exactly what an account takeover would do.
+  audit("auth.2fa.disable", { severity: "warning" });
   return true;
 };
 
@@ -81,8 +91,15 @@ export const verifyLogin = async (body) => {
     throw new ErrorResponse("Two-factor authentication is not enabled for this account.", 400);
   }
   if (!verifyTwoFactorCode(user.twoFactor.secret, code)) {
+    audit("auth.login", {
+      outcome: "failure",
+      actor: user._id,
+      actorEmail: user.email,
+      metadata: { method: "2fa", reason: "wrong_code" },
+    });
     throw new ErrorResponse("Invalid code. Please try again.", 401);
   }
 
+  audit("auth.login", { actor: user._id, actorEmail: user.email, metadata: { method: "2fa" } });
   return { token: generateToken(user) };
 };
