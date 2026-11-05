@@ -369,6 +369,16 @@ POST /lookup/cover { coverId }   admin: copy the cover into Cloudinary as their
 
 ---
 
+## 🔎 Sitemap
+
+`GET /seo/sitemap.xml` (public, cached 1 hour) lists the frontend's public pages
+(`/`, `/books`, `/plans`, `/requests`, `/contact`, `/privacy`, `/terms`) and every
+**published** book (`/books/:id` with `lastmod`), as URLs on `CLIENT_URL`.
+Account, admin and reader pages are never listed. The frontend's build writes a
+`robots.txt` that points crawlers here.
+
+---
+
 ## 🙋 Book requests
 
 Users ask the admin to add a book; there is **one request per book**, and
