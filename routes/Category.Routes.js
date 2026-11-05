@@ -1,6 +1,7 @@
 import express from "express";
 import { inTransaction } from "../middlewares/transaction.js";
 import verifyToken from "../middlewares/verifyToken.js";
+import optionalAuth from "../middlewares/optionalAuth.js";
 import * as categoryController from "../controller/Category.Controller.js";
 import verifyRole from "../middlewares/verifyRole.js";
 import { createLimiter } from "../middlewares/rateLimiter.js";
@@ -28,7 +29,9 @@ router.post(
   categoryController.createCategory,
 );
 
-router.get("/", verifyToken, categoryController.getCategories);
+// Public: visitors filter the catalogue by category (approved ones only).
+// The admin (signed in) also sees pending/rejected and can filter by ?status.
+router.get("/", optionalAuth, categoryController.getCategories);
 
 // The categories I suggested and their status (+ admin's reviewNote).
 router.get("/mine", verifyToken, categoryController.getMySuggestions);

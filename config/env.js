@@ -49,6 +49,7 @@ const schema = z.object({
   FACEBOOK_APP_ID: optional(z.string()),
   FACEBOOK_APP_SECRET: optional(z.string()),
   TWO_FA_ISSUER: optional(z.string()),
+  OPENLIBRARY_CONTACT: optional(z.string()),
 
   EASYPAISA_ACCOUNT_TITLE: optional(z.string()),
   EASYPAISA_ACCOUNT_NUMBER: optional(

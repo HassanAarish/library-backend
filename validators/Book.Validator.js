@@ -35,6 +35,10 @@ export const updateBook = z
   .partial()
   .refine(...atLeastOneField);
 
+export const importCover = z.object({
+  coverId: int({ min: 1 }),
+});
+
 export const setStatus = z.object({
   status: z.enum(["draft", "published", "archived"], {
     message: "must be draft, published or archived",

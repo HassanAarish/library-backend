@@ -96,6 +96,36 @@ export const uploadFiles = async (files, userId) => {
 };
 
 /**
+ * Copy a remote image into Cloudinary and record it as an Asset owned by
+ * `userId`, so it can be used like any upload (e.g. an Open Library cover as a
+ * book cover). Callers must pass a URL they built themselves, never one from
+ * the request (no fetching of arbitrary addresses).
+ */
+export const importImageFromUrl = async (url, userId, { folder = "library/covers", name } = {}) => {
+  const result = await cloudinary.uploader.upload(url, { folder, resource_type: "image" });
+
+  const asset = {
+    name: name || `${result.public_id.split("/").pop()}.${result.format}`,
+    url: result.secure_url,
+    public_id: result.public_id,
+    resourceType: result.resource_type,
+    deliveryType: result.type,
+    format: result.format,
+    bytes: result.bytes,
+    mimetype: `image/${result.format === "jpg" ? "jpeg" : result.format}`,
+  };
+
+  try {
+    await Asset.create({ ...asset, owner: userId });
+  } catch (err) {
+    await destroyAsset(asset).catch(() => {});
+    throw err;
+  }
+
+  return { name: asset.name, url: asset.url, public_id: asset.public_id };
+};
+
+/**
  * Upload one file as a PRIVATE Cloudinary asset (delivery type
  * "authenticated"): it has no public URL and can only be fetched with a
  * server-signed URL. Recorded as an Asset owned by `userId`.

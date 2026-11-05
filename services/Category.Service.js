@@ -71,7 +71,10 @@ export const getCategories = async (req, role) => {
     // Admins may filter by any status; everyone else only ever sees approved ones.
     filterFields: isAdmin ? ["status"] : [],
     filters: isAdmin ? {} : { status: "approved" },
-    populate: { path: "proposedBy", select: isAdmin ? "name email" : "name" },
+    // Who suggested a category is only shown to the admin (the list is public).
+    ...(isAdmin
+      ? { populate: { path: "proposedBy", select: "name email" } }
+      : { select: "-proposedBy -reviewNote" }),
   };
 
   // Cache-aside keyed by everything that affects the result set.

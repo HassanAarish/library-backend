@@ -338,6 +338,30 @@ on the cron — it's checked against the dates.
 
 ---
 
+## 🔎 Book lookup (Open Library)
+
+Book details come from [Open Library](https://openlibrary.org), which is free
+and CC0 licensed. They auto-fill the admin's "Add book" form and suggest titles
+when a reader requests a book. Only details and cover images come from there.
+The readable PDF is always the admin's own upload, of a book they have rights to.
+
+```
+GET  /lookup/books?q=atomic habits | ?isbn=9780735211292   (signed in; 30/min)
+     → [{ workKey, title, author, authors, publishedYear, isbn, language,
+          pageCount, subjects, coverId, coverUrl }]
+GET  /lookup/books/:workKey      description + subjects (e.g. OL17930368W)
+POST /lookup/cover { coverId }   admin: copy the cover into Cloudinary as their
+                                 upload → { public_id, url }, usable as coverImage
+```
+
+- Results are cached for 1 hour (works for 1 day). Requests send a
+  `LibraryHub/1.0 (<contact>)` User-Agent, as Open Library asks. Set
+  `OPENLIBRARY_CONTACT` to choose the address (defaults to `EMAIL`).
+- The cover import only accepts a numeric cover id and builds the URL itself,
+  so it can't be used to make the server fetch arbitrary addresses.
+
+---
+
 ## 🙋 Book requests
 
 Users ask the admin to add a book; there is **one request per book**, and
