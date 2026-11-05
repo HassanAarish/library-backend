@@ -25,6 +25,15 @@ export const getUserData = asyncHandler(async (req, res) => {
   });
 });
 
+export const getDashboardStats = asyncHandler(async (req, res) => {
+  const data = await adminService.getDashboardStats();
+
+  return res.status(200).json({
+    success: true,
+    data,
+  });
+});
+
 export const getAuditLogs = asyncHandler(async (req, res) => {
   const data = await adminService.getAuditLogs(req);
 

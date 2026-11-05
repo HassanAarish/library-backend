@@ -189,7 +189,8 @@ export const getAdminPayments = async (req) => {
   const data = await helper.paginate(Payment, req, {
     sort: { createdAt: -1 },
     searchFields: ["reference", "proof.transactionId", "proof.senderNumber"],
-    filterFields: ["status", "purpose", "method", "user", "reference"],
+    // refund.status=requested → the refunds the admin still has to send.
+    filterFields: ["status", "purpose", "method", "user", "reference", "refund.status"],
     populate: [
       { path: "user", select: "name email" },
       {

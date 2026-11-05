@@ -1,4 +1,9 @@
 import AuditLog from "../models/AuditLog.Model.js";
+import Book from "../models/Book.Model.js";
+import BookRequest from "../models/BookRequest.Model.js";
+import Category from "../models/Category.Model.js";
+import Payment from "../models/Payment.Model.js";
+import UserPackage from "../models/UserPackage.Model.js";
 import Preferences from "../models/Preferences.Model.js";
 import Rental from "../models/Rental.Model.js";
 import RequestLog from "../models/RequestLog.Model.js";
@@ -74,6 +79,57 @@ export const toggleUserBlock = async (userId, session = null) => {
   return {
     isBlocked: user.isBlocked,
     name: user.name,
+  };
+};
+
+/**
+ * Dashboard numbers in one call: the admin's to-do queues and a few totals.
+ * Revenue counts approved payments of the last 30 days (PKR).
+ */
+export const getDashboardStats = async () => {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const now = new Date();
+
+  const [
+    paymentsToReview,
+    refundsToSend,
+    openRequests,
+    pendingCategories,
+    readingNow,
+    upcoming,
+    publishedBooks,
+    readers,
+    activePackages,
+    revenue,
+  ] = await Promise.all([
+    Payment.countDocuments({ status: "submitted" }),
+    Payment.countDocuments({ "refund.status": "requested" }),
+    BookRequest.countDocuments({ status: { $in: ["open", "reviewing"] } }),
+    Category.countDocuments({ status: "pending" }),
+    Rental.countDocuments({
+      status: { $in: ["active", "scheduled"] },
+      startDate: { $lte: now },
+      endDate: { $gt: now },
+    }),
+    Rental.countDocuments({
+      status: { $in: ["scheduled", "payment_review", "pending_payment"] },
+      startDate: { $gt: now },
+    }),
+    Book.countDocuments({ status: "published" }),
+    User.countDocuments({ role: "user" }),
+    UserPackage.countDocuments({ status: "active", expiresAt: { $gt: now } }),
+    Payment.aggregate([
+      { $match: { status: "approved", reviewedAt: { $gte: since } } },
+      { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  return {
+    todo: { paymentsToReview, refundsToSend, openRequests, pendingCategories },
+    rentals: { readingNow, upcoming },
+    catalogue: { publishedBooks },
+    people: { readers, activePackages },
+    revenue30d: { amount: revenue[0]?.total ?? 0, payments: revenue[0]?.count ?? 0 },
   };
 };
 
