@@ -274,10 +274,6 @@ GET /reader/:bookId/pages/:page   → one page as a JPEG, watermarked for this r
 > Cloudinary → Settings → Security ("Allow delivery of PDF and ZIP files").
 > (3) Cloudinary's own max file size depends on your plan.
 
-**Migrating existing books:** `node scripts/migrate-books-v2.js` (dry run) →
-`--apply` → `--apply --move-files` (makes old PDFs private and records page
-counts). Non-PDF books are reported and kept as drafts.
-
 ---
 
 ## 🗓️ Rentals, packages & payments
@@ -472,7 +468,7 @@ library-backend/
 ├── models/          Mongoose schemas
 ├── realtime/        Socket.IO server (rooms, auth, emitters)
 ├── routes/          *.Routes.js (auto-mounted by filename)
-├── scripts/         one-off maintenance (sync-indexes.js, migrate-books-v2.js)
+├── scripts/         maintenance: sync-indexes.js (make DB indexes match the models; dry run, then --apply)
 ├── services/        business logic + DB access
 ├── tests/           Vitest suites + tests/support (in-memory DB, test server, env)
 ├── utils/           audit, requestContext, redact, emailClient, socialVerify, twoFactor, cache, generateTokens, fileLogger, helper, errorResponse
