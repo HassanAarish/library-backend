@@ -8,6 +8,8 @@ import { verifySocialToken } from "../utils/socialVerify.js";
 import { uploadFromUrl, removeFiles } from "./Common.Service.js";
 import { getEnv } from "../config/dotenv.js";
 import { audit } from "../utils/audit.js";
+import { afterCommit } from "../utils/requestContext.js";
+import { disconnectStaleSessions } from "../realtime/socket.js";
 import helper from "../utils/helper.js";
 
 // Maps a social provider to the User field that stores its account id.
@@ -313,6 +315,8 @@ export const resetPassword = async (body, session = null) => {
   await user.save({ session });
 
   audit("auth.password.reset", { actor: user._id, actorEmail: user.email });
+
+  afterCommit(() => disconnectStaleSessions(user._id, user.passwordChangedAt));
   return true;
 };
 

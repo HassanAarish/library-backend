@@ -47,6 +47,9 @@ const RentalSchema = new mongoose.Schema(
     // Slot is released if payment proof isn't sent by then (pending_payment only).
     holdExpiresAt: { type: Date },
 
+    // Last time this booking's reader was told the book is free early.
+    earlyStartOfferedAt: { type: Date },
+
     extended: { type: Boolean, default: false },
     returnedAt: { type: Date },
     cancelledAt: { type: Date },

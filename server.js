@@ -1,4 +1,5 @@
 import express from "express";
+import http from "node:http";
 import cloudinary from "cloudinary";
 import cors from "cors";
 import helmet from "helmet";
@@ -15,6 +16,7 @@ import { globalLimiter } from "./middlewares/rateLimiter.js";
 import requestLogger, { flushRequestLogs } from "./middlewares/requestLogger.js";
 import verifyToken from "./middlewares/verifyToken.js";
 import verifyRole from "./middlewares/verifyRole.js";
+import { initSocket, closeSocket } from "./realtime/socket.js";
 
 const PORT = getEnv("PORT");
 const NODE_ENV = getEnv("NODE_ENV");
@@ -94,13 +96,19 @@ app.use(router);
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+// One HTTP server for both the REST API and Socket.IO (same port).
+const server = http.createServer(app);
+
+initSocket(server, { origins: CORS_ORIGINS });
+
+server.listen(PORT, () => {
   console.log(`🚀 ~ Server running in ${NODE_ENV} mode on port ${PORT}`);
 });
 
 // Write any buffered request logs before the process exits.
 const shutdown = async (signal) => {
   console.log(`${signal} received — flushing activity logs...`);
+  closeSocket();
   await flushRequestLogs();
   process.exit(0);
 };

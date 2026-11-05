@@ -7,57 +7,22 @@ import ErrorResponse from "../utils/errorResponse.js";
 import helper from "../utils/helper.js";
 import { audit } from "../utils/audit.js";
 import { createPayment, getInstructions } from "./Payment.Service.js";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { availabilityChanged, notifyAdmins } from "./Notification.Service.js";
+import {
+  DAY_MS,
+  earliestStart,
+  formatDate,
+  getBookings,
+  isLive,
+  offerEarlyStart,
+  overlaps,
+  slotHoldingFilter,
+} from "./rentalSlots.js";
 
 // A start date this far in the past is treated as "now" (clock skew, slow forms).
 const START_GRACE_MS = 5 * 60 * 1000;
 
 const BOOK_SUMMARY = "title author coverImage rentalDays price";
-
-/**
- * Mongo filter for rentals that currently hold their slot. An unpaid booking
- * only holds it until its hold expires — even before the cron job tidies up.
- */
-export const slotHoldingFilter = (now = new Date()) => ({
-  $or: [
-    { status: { $in: ["payment_review", "scheduled", "active"] } },
-    { status: "pending_payment", holdExpiresAt: { $gt: now } },
-  ],
-});
-
-const formatDate = (date) =>
-  new Date(date).toLocaleString("en-GB", {
-    timeZone: "Asia/Karachi",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-
-/** Every booking of a book that hasn't ended yet, earliest first. */
-const getBookings = (bookId, now, session, excludeRentalId) =>
-  Rental.find({
-    bookId,
-    endDate: { $gt: now },
-    ...slotHoldingFilter(now),
-    ...(excludeRentalId && { _id: { $ne: excludeRentalId } }),
-  })
-    .sort({ startDate: 1 })
-    .select("startDate endDate renterId status")
-    .session(session)
-    .lean();
-
-const overlaps = (bookings, start, end) =>
-  bookings.some((b) => b.startDate < end && b.endDate > start);
-
-/** Earliest start ≥ `from` with a free gap of `days` days. */
-const earliestStart = (bookings, from, days) => {
-  let candidate = new Date(from);
-  for (const b of bookings) {
-    if (candidate.getTime() + days * DAY_MS <= b.startDate.getTime()) break;
-    if (b.endDate > candidate) candidate = new Date(b.endDate);
-  }
-  return candidate;
-};
 
 /**
  * Serialize bookings of one book: every booking transaction bumps the same
@@ -66,8 +31,6 @@ const earliestStart = (bookings, from, days) => {
  */
 const lockBook = (bookId, session) =>
   Book.updateOne({ _id: bookId }, { $inc: { bookingVersion: 1 } }, { session });
-
-const isLive = (rental, now) => rental.startDate <= now && rental.endDate > now;
 
 /**
  * Public availability of a book's single copy. For a logged-in user it also
@@ -282,6 +245,8 @@ export const createRental = async (body, userId, session = null) => {
     },
   });
 
+  availabilityChanged(book._id);
+
   return {
     rental,
     payment: payment && {
@@ -365,6 +330,18 @@ export const cancelRental = async (rentalId, userId, session = null) => {
     metadata: { bookId: rental.bookId, previousStatus, creditReturned, refundRequested },
   });
 
+  if (refundRequested) {
+    notifyAdmins({
+      type: "refund.requested",
+      title: "Refund requested",
+      message: `A paid booking was cancelled (Rs ${rental.price}). Send the refund via Easypaisa, then mark it on the payment.`,
+      data: { rentalId: rental._id, paymentId: rental.payment },
+    });
+  }
+
+  availabilityChanged(rental.bookId);
+  await offerEarlyStart(rental.bookId, session);
+
   return { creditReturned, refundRequested };
 };
 
@@ -404,6 +381,8 @@ export const extendRental = async (rentalId, userId, session = null) => {
     metadata: { bookId: rental.bookId, previousEnd, newEnd },
   });
 
+  availabilityChanged(rental.bookId);
+
   return rental;
 };
 
@@ -426,6 +405,9 @@ export const returnRental = async (rentalId, userId, session = null) => {
     target: { type: "Rental", id: rental._id },
     metadata: { bookId: rental.bookId, scheduledEnd, returnedAt: now },
   });
+
+  availabilityChanged(rental.bookId);
+  await offerEarlyStart(rental.bookId, session);
 
   return rental;
 };
@@ -470,6 +452,8 @@ export const startRentalNow = async (rentalId, userId, session = null) => {
     target: { type: "Rental", id: rental._id },
     metadata: { bookId: rental.bookId, previousStart, newStart: now },
   });
+
+  availabilityChanged(rental.bookId);
 
   return rental;
 };

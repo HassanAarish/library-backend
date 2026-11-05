@@ -24,6 +24,15 @@ export const getCategories = asyncHandler(async (req, res) => {
   });
 });
 
+export const getMySuggestions = asyncHandler(async (req, res) => {
+  const data = await categoryService.getMySuggestions(req);
+
+  return res.status(200).json({
+    success: true,
+    data,
+  });
+});
+
 export const updateCategory = asyncHandler(async (req, res) => {
   const session = req.transaction;
   const result = await categoryService.updateCategory(req.params.categoryId, req.body, session);

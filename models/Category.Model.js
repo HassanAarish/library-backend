@@ -7,18 +7,21 @@ const CategorySchema = new mongoose.Schema(
       required: true,
       unique: true, // Automatically indexed
       trim: true,
+      maxlength: 60,
     },
     slug: {
       type: String,
       unique: true, // Automatically indexed
       lowercase: true,
     },
-    description: { type: String },
+    description: { type: String, trim: true, maxlength: 500 },
     status: {
       type: String,
       enum: ["approved", "pending", "rejected"],
       default: "pending",
     },
+    // Admin's message to the reader who suggested it (e.g. reason for rejection).
+    reviewNote: { type: String, trim: true, maxlength: 500 },
     proposedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

@@ -3,6 +3,8 @@ import User from "../models/User.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import helper from "../utils/helper.js";
 import { audit } from "../utils/audit.js";
+import { afterCommit } from "../utils/requestContext.js";
+import { disconnectStaleSessions } from "../realtime/socket.js";
 import { getOwnedAsset, removeFiles } from "./Common.Service.js";
 
 // Preference fields a user may edit themselves. Anything else in `prefData`
@@ -100,6 +102,9 @@ export const updatePassword = async (userId, body, session = null) => {
   await user.save({ session });
 
   audit("user.password.change");
+
+  // Live connections opened with the old password's tokens are closed too.
+  afterCommit(() => disconnectStaleSessions(user._id, user.passwordChangedAt));
 
   return true;
 };

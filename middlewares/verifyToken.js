@@ -7,15 +7,21 @@ import jwt from "jsonwebtoken";
 
 const SECRET_KEY = getEnv("SECRET_KEY");
 
-const verifyToken = async (req, res, next) => {
-  let token;
-
-  if (req.headers.authorization?.startsWith("Bearer")) {
-    token = req.headers.authorization.split(" ")[1];
-  }
-
+/**
+ * Check a JWT and return the live user it belongs to. Shared by HTTP requests
+ * and socket connections so both enforce the same rules.
+ *
+ * Blocked status, current role, and password changes are read from the DB so
+ * they take effect immediately, not when the token expires.
+ *
+ * @param {string} token
+ * @param {object} [where] - extra audit metadata (path, method, transport)
+ * @returns {Promise<{ user: object, issuedAt: number }>} issuedAt in ms
+ * @throws {ErrorResponse}
+ */
+export const authenticateToken = async (token, where = {}) => {
   if (!token) {
-    return next(new ErrorResponse("No access token was provided.", 401));
+    throw new ErrorResponse("No access token was provided.", 401);
   }
 
   let decoded;
@@ -23,21 +29,22 @@ const verifyToken = async (req, res, next) => {
     decoded = jwt.verify(token, SECRET_KEY);
   } catch (error) {
     if (error.name === "TokenExpiredError") {
-      return next(new ErrorResponse("Token has expired.", 401));
+      throw new ErrorResponse("Token has expired.", 401);
     }
     // A bad signature or malformed token is a tampering signal, not normal expiry.
-    audit("auth.token.invalid", { outcome: "failure", metadata: { reason: error.message } });
-    return next(new ErrorResponse("Not authorized to access this route", 401));
+    audit("auth.token.invalid", {
+      outcome: "failure",
+      metadata: { reason: error.message, ...where },
+    });
+    throw new ErrorResponse("Not authorized to access this route", 401);
   }
 
-  // Database check: blocked status, current role, and password changes are
-  // read from the DB so they take effect immediately, not when the token expires.
   const user = await User.findById(decoded.user?.userID)
     .select("isBlocked role email passwordChangedAt")
     .lean();
 
   if (!user) {
-    return next(new ErrorResponse("User no longer exists.", 404));
+    throw new ErrorResponse("User no longer exists.", 404);
   }
 
   if (user.isBlocked) {
@@ -45,14 +52,30 @@ const verifyToken = async (req, res, next) => {
       outcome: "failure",
       actor: user._id,
       actorEmail: user.email,
-      metadata: { path: req.originalUrl, method: req.method },
+      metadata: where,
     });
-    return next(new ErrorResponse("Account is suspended. Please contact support.", 403));
+    throw new ErrorResponse("Account is suspended. Please contact support.", 403);
   }
 
   // Tokens issued before the last password change are no longer valid.
-  if (user.passwordChangedAt && decoded.iat * 1000 < new Date(user.passwordChangedAt).getTime()) {
-    return next(new ErrorResponse("Your session has expired. Please log in again.", 401));
+  const issuedAt = decoded.iat * 1000;
+  if (user.passwordChangedAt && issuedAt < new Date(user.passwordChangedAt).getTime()) {
+    throw new ErrorResponse("Your session has expired. Please log in again.", 401);
+  }
+
+  return { user, issuedAt };
+};
+
+const verifyToken = async (req, res, next) => {
+  const token = req.headers.authorization?.startsWith("Bearer")
+    ? req.headers.authorization.split(" ")[1]
+    : undefined;
+
+  let user;
+  try {
+    ({ user } = await authenticateToken(token, { path: req.originalUrl, method: req.method }));
+  } catch (err) {
+    return next(err);
   }
 
   req.userID = String(user._id);

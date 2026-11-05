@@ -6,6 +6,8 @@ import User from "../models/User.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import helper from "../utils/helper.js";
 import { audit } from "../utils/audit.js";
+import { afterCommit } from "../utils/requestContext.js";
+import { disconnectUser } from "../realtime/socket.js";
 
 // Never sent to any client — not even the admin.
 const USER_SECRET_FIELDS = "-password -otp -resetPassword -twoFactor.secret";
@@ -55,14 +57,19 @@ export const toggleUserBlock = async (userId, session = null) => {
     throw new ErrorResponse("Administrative accounts cannot be blocked.", 400);
   }
 
+  // Targeted update: blocking must work even if some unrelated field of an
+  // old account wouldn't pass today's validation.
   user.isBlocked = !user.isBlocked;
-
-  await user.save({ session });
+  await User.updateOne({ _id: user._id }, { $set: { isBlocked: user.isBlocked } }, { session });
 
   audit(user.isBlocked ? "admin.user.block" : "admin.user.unblock", {
     target: { type: "User", id: user._id },
     metadata: { email: user.email },
   });
+
+  // A blocked user's open tabs lose live access at once (their next HTTP
+  // request is refused by verifyToken anyway).
+  if (user.isBlocked) afterCommit(() => disconnectUser(user._id));
 
   return {
     isBlocked: user.isBlocked,

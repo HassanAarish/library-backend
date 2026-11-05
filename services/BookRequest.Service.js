@@ -1,13 +1,10 @@
 import Book from "../models/Book.Model.js";
 import BookRequest, { OPEN_STATUSES } from "../models/BookRequest.Model.js";
-import Preferences from "../models/Preferences.Model.js";
-import User from "../models/User.Model.js";
 import policy from "../config/bookRequestPolicy.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import helper from "../utils/helper.js";
 import { audit } from "../utils/audit.js";
-import { notifyUsers } from "../utils/emailClient.js";
-import { afterCommit } from "../utils/requestContext.js";
+import { notify, notifyAdmins } from "./Notification.Service.js";
 
 // Statuses the admin sets directly; "fulfilled" and "merged" have their own actions.
 const ADMIN_STATUSES = ["open", "reviewing", "planned", "rejected"];
@@ -137,32 +134,14 @@ const isFollowing = (requestId, userId, session) =>
   BookRequest.exists({ _id: requestId, "followers.user": userId }).session(session);
 
 /**
- * Email everyone following a request once the change has committed. Skips
- * blocked users and anyone who turned email notifications off. (Phase 4 adds
- * in-app + socket notifications here as well.)
+ * Tell everyone following a request (in-app, live, and by email unless they
+ * turned email off) once the change has committed. Blocked users are skipped.
  */
-const notifyFollowers = (followers, title, message) => {
-  const userIds = followers.map((f) => f.user);
-  if (!userIds.length) return;
-
-  afterCommit(async () => {
-    const [users, optedOut] = await Promise.all([
-      User.find({ _id: { $in: userIds }, isBlocked: { $ne: true } })
-        .select("email")
-        .lean(),
-      Preferences.find({ userId: { $in: userIds }, "notifications.email": false })
-        .select("userId")
-        .lean(),
-    ]);
-
-    const skip = new Set(optedOut.map((p) => String(p.userId)));
-    notifyUsers(
-      users.filter((u) => !skip.has(String(u._id))).map((u) => u.email),
-      title,
-      message,
-    );
-  });
-};
+const notifyFollowers = (followers, request, { type = "book_request.updated", title, message }) =>
+  notify(
+    followers.map((f) => f.user),
+    { type, title, message, data: { requestId: request._id, bookId: request.book } },
+  );
 
 const closeRequest = (request, status, note) => {
   request.status = status;
@@ -228,6 +207,13 @@ export const createRequest = async (body, userId, session = null) => {
   audit("book_request.create", {
     target: { type: "BookRequest", id: request._id },
     metadata: { title: request.title, author: request.author, isbn: request.isbn },
+  });
+
+  notifyAdmins({
+    type: "book_request.created",
+    title: "New book request",
+    message: `"${request.title}"${request.author ? ` by ${request.author}` : ""} was requested.`,
+    data: { requestId: request._id },
   });
 
   return { request: toPublic(request, true), joined: false };
@@ -417,11 +403,12 @@ export const updateStatus = async (requestId, { status, note } = {}, session = n
   });
 
   const message = STATUS_MESSAGES[status](request.title);
-  notifyFollowers(
-    request.followers,
-    `Update on your book request`,
-    cleanNote ? `${message} ${status === "rejected" ? "Reason" : "Note"}: ${cleanNote}` : message,
-  );
+  notifyFollowers(request.followers, request, {
+    title: `Update on your book request`,
+    message: cleanNote
+      ? `${message} ${status === "rejected" ? "Reason" : "Note"}: ${cleanNote}`
+      : message,
+  });
 
   return toPublic(request);
 };
@@ -448,11 +435,11 @@ export const fulfillRequest = async (requestId, { bookId, note } = {}, session =
     metadata: { title: request.title, bookId: book._id, followers: request.followerCount },
   });
 
-  notifyFollowers(
-    request.followers,
-    `"${book.title}" is now in the library`,
-    `The book you asked for, "${book.title}", has been added. You can rent it now from the catalogue.${cleanNote ? ` ${cleanNote}` : ""}`,
-  );
+  notifyFollowers(request.followers, request, {
+    type: "book_request.fulfilled",
+    title: `"${book.title}" is now in the library`,
+    message: `The book you asked for, "${book.title}", has been added. You can rent it now from the catalogue.${cleanNote ? ` ${cleanNote}` : ""}`,
+  });
 
   return toPublic(request);
 };
@@ -493,11 +480,10 @@ export const mergeRequest = async (requestId, intoId, session = null) => {
     metadata: { from: source.title, into: target.title, intoId: target._id, moved: moving.length },
   });
 
-  notifyFollowers(
-    moving,
-    `Update on your book request`,
-    `Your request for "${source.title}" has been combined with "${target.title}". You'll get its updates from now on.`,
-  );
+  notifyFollowers(moving, target, {
+    title: `Update on your book request`,
+    message: `Your request for "${source.title}" has been combined with "${target.title}". You'll get its updates from now on.`,
+  });
 
   return toPublic(target);
 };

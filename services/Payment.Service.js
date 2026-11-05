@@ -6,10 +6,10 @@ import UserPackage from "../models/UserPackage.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import helper from "../utils/helper.js";
 import { audit } from "../utils/audit.js";
-import { notifyUser } from "../utils/emailClient.js";
-import { afterCommit } from "../utils/requestContext.js";
 import { getProvider } from "./payments/providers.js";
 import { getOwnedAsset } from "./Common.Service.js";
+import { availabilityChanged, notify, notifyAdmins } from "./Notification.Service.js";
+import { offerEarlyStart } from "./rentalSlots.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -171,6 +171,15 @@ export const submitProof = async (paymentId, userId, body, session = null) => {
     },
   });
 
+  // Ping the admin straight away: the booking waits on this review.
+  notifyAdmins({
+    type: "payment.submitted",
+    title: "Payment to review",
+    message: `${payment.reference}: Rs ${payment.amount} for a ${payment.purpose}, Easypaisa TID ${tid}.`,
+    data: { paymentId: payment._id, reference: payment.reference },
+    email: "preference",
+  });
+
   return saved;
 };
 
@@ -216,6 +225,7 @@ export const approvePayment = async (paymentId, adminId, session = null) => {
   const payment = await loadForReview(paymentId, session);
   const now = new Date();
   let summary;
+  const data = { paymentId: payment._id };
 
   if (payment.purpose === "rental") {
     const rental = await Rental.findById(payment.rental)
@@ -227,6 +237,7 @@ export const approvePayment = async (paymentId, adminId, session = null) => {
     rental.status = rental.startDate <= now ? "active" : "scheduled";
     await rental.save({ session });
     summary = `Your rental of "${rental.bookId?.title}" is confirmed. Reading opens ${rental.startDate <= now ? "now" : `on ${rental.startDate.toDateString()}`}.`;
+    Object.assign(data, { rentalId: rental._id, bookId: rental.bookId?._id });
   } else {
     const pkg = await UserPackage.findById(payment.userPackage).session(session);
     if (!pkg || pkg.status !== "pending_payment") {
@@ -237,6 +248,7 @@ export const approvePayment = async (paymentId, adminId, session = null) => {
     pkg.expiresAt = new Date(now.getTime() + pkg.snapshot.validityDays * DAY_MS);
     await pkg.save({ session });
     summary = `Your "${pkg.snapshot.name}" package is active: ${pkg.creditsTotal} credits, valid until ${pkg.expiresAt.toDateString()}.`;
+    data.userPackageId = pkg._id;
   }
 
   payment.status = "approved";
@@ -255,8 +267,13 @@ export const approvePayment = async (paymentId, adminId, session = null) => {
     },
   });
 
-  const email = payment.user?.email;
-  afterCommit(() => notifyUser(email, "Payment confirmed", summary));
+  notify(payment.user?._id, {
+    type: "payment.approved",
+    title: "Payment confirmed",
+    message: summary,
+    data,
+    email: "always",
+  });
 
   return payment;
 };
@@ -266,11 +283,16 @@ export const rejectPayment = async (paymentId, adminId, reason, session = null) 
   const now = new Date();
 
   if (payment.purpose === "rental") {
-    await Rental.updateOne(
+    const rental = await Rental.findOneAndUpdate(
       { _id: payment.rental, status: "payment_review" },
       { $set: { status: "cancelled", cancelReason: "payment_rejected", cancelledAt: now } },
       { session },
     );
+    // The slot is free again.
+    if (rental) {
+      availabilityChanged(rental.bookId);
+      await offerEarlyStart(rental.bookId, session);
+    }
   } else {
     await UserPackage.updateOne(
       { _id: payment.userPackage, status: "pending_payment" },
@@ -298,9 +320,13 @@ export const rejectPayment = async (paymentId, adminId, reason, session = null) 
     },
   });
 
-  const email = payment.user?.email;
-  const message = `We couldn't confirm your payment ${payment.reference}. Reason: ${reason}`;
-  afterCommit(() => notifyUser(email, "Payment not confirmed", message));
+  notify(payment.user?._id, {
+    type: "payment.rejected",
+    title: "Payment not confirmed",
+    message: `We couldn't confirm your payment ${payment.reference}. Reason: ${reason}`,
+    data: { paymentId: payment._id, rentalId: payment.rental, userPackageId: payment.userPackage },
+    email: "always",
+  });
 
   return payment;
 };
@@ -323,6 +349,17 @@ export const resolveRefund = async (paymentId, { status, note }, session = null)
   audit(`admin.refund.${status}`, {
     target: { type: "Payment", id: payment._id },
     metadata: { reference: payment.reference, amount: payment.amount, note },
+  });
+
+  notify(payment.user, {
+    type: "refund.resolved",
+    title: status === "refunded" ? "Refund sent" : "Refund declined",
+    message:
+      status === "refunded"
+        ? `Rs ${payment.amount} for payment ${payment.reference} has been refunded to you.${note ? ` ${note}` : ""}`
+        : `The refund for payment ${payment.reference} was declined.${note ? ` Reason: ${note}` : ""}`,
+    data: { paymentId: payment._id },
+    email: "always",
   });
 
   return payment;

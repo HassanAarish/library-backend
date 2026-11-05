@@ -371,6 +371,61 @@ admin: GET   /bookrequest/admin              (?status, search, sort)
 
 ---
 
+## 🔔 Notifications & real-time (Socket.IO)
+
+Everything that happens to a user lands in their **inbox** (`Notification`
+collection, kept 180 days), is **pushed live** to their open tabs, and is
+**emailed** when it matters. Delivery runs only after the change commits
+(`notify()` / `notifyAdmins()` in `services/Notification.Service.js`), and
+blocked users get nothing.
+
+| Who | When |
+|---|---|
+| Admin | payment proof submitted (also emailed), refund requested, new book request, new category suggestion |
+| User | payment confirmed / not confirmed and refund outcome (always emailed); booked rental started; rental ended; unpaid hold released; **book freed early → "start now"**; credits expiring / expired; book-request updates; category suggestion approved / not added |
+
+Email follows the user's `notifications.email` preference, except payment and
+refund messages, which are always sent.
+
+**Connecting**: same host and port as the API.
+
+```js
+const socket = io(API_URL, { auth: { token } }); // token optional
+socket.on("notification:new", (n) => ...);         // { _id, type, title, message, data, createdAt }
+socket.on("notification:read", ({ ids, unreadCount }) => ...); // read on another tab
+socket.emit("book:watch", bookId, (ack) => ...);   // on a book page (max 20)
+socket.on("book:availability", ({ bookId }) => refetch(`/rental/availability/${bookId}`));
+socket.on("account:blocked", () => logout());
+```
+
+- Without a token the socket is anonymous and can only watch books, because
+  availability is public. Bad, expired or blocked tokens are refused at connect,
+  using the same checks as `verifyToken`.
+- Events carry ids and short text only. Clients refetch details over HTTP, so
+  access rules live in one place, and live "people ahead / your place in line"
+  comes from refetching availability.
+- Blocking a user disconnects their sockets at once; changing or resetting a
+  password drops sockets opened with older tokens.
+- A socket sending more than 60 events in 10 seconds is disconnected and flagged
+  (`security.socket_flood`).
+- With `REDIS_URL` set, the Redis adapter delivers events across several API
+  instances.
+
+```
+GET    /notification              ?unread=true&type=…&page&limit  (+ unreadCount)
+GET    /notification/unread-count
+PATCH  /notification/read         { ids: [...] }
+PATCH  /notification/read-all
+DELETE /notification/:id
+```
+
+**Category suggestions**: any user can suggest a category with `POST /category`
+(max 10 an hour). The admin is notified, then approves or rejects it with
+`PATCH /category/:id { status, note? }`, and the reader is told the outcome.
+Readers see their suggestions at `GET /category/mine`.
+
+---
+
 ## ✨ Other features
 
 - **Caching** (`utils/cache.js`) — `cache.wrap(key, ttl, fn)` cache-aside with
@@ -429,6 +484,7 @@ CLIENT_URL=http://localhost:5173   # used to build the password-reset link
 
 # Activity logging (optional)
 # REQUEST_LOG_RETENTION_DAYS=90   # how long per-request logs are kept
+# NOTIFICATION_RETENTION_DAYS=180 # how long in-app notifications are kept
 
 # Email (SMTP) — used for OTP + password-reset
 EMAIL=<smtp-account>
