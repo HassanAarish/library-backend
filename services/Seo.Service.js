@@ -13,7 +13,10 @@ const STATIC_PAGES = [
 ];
 
 const escapeXml = (s) =>
-  String(s).replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c]);
+  String(s).replace(
+    /[<>&'"]/g,
+    (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c],
+  );
 
 /**
  * sitemap.xml for the frontend: the public pages plus every published book.
