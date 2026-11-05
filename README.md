@@ -219,6 +219,13 @@ GET /admin/audit-logs    ?action&outcome&severity&actor&ip&requestId&target.id&s
 GET /admin/request-logs  ?user&ip&method&status&requestId&search(path)&from&to&page&limit
 ```
 
+Dashboard: `GET /admin/stats` returns, in one call, the to-do queues
+(`paymentsToReview`, `refundsToSend`, `openRequests`, `pendingCategories`),
+`rentals.readingNow`/`upcoming`, `catalogue.publishedBooks`,
+`people.readers`/`activePackages` and `revenue30d` (approved payments, last
+30 days). Refunds still to send are listed with
+`GET /payment/admin?refund.status=requested`.
+
 Every error response also returns its `requestId`, so a user's complaint can be
 traced straight to the matching log entries.
 
