@@ -1,5 +1,4 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
-import helper from "../utils/helper.js";
 import * as bookService from "../services/Book.Service.js";
 import { uploadBookFile } from "../services/Common.Service.js";
 
@@ -38,9 +37,6 @@ export const uploadFile = asyncHandler(async (req, res) => {
 export const createBook = asyncHandler(async (req, res) => {
   const session = req.transaction;
 
-  const required = ["title", "author", "description", "price", "categoryId", "file", "coverImage"];
-  helper.checkMandatoryFields(req.body, required);
-
   const book = await bookService.createBook(req.body, req.userID, session);
 
   return res.status(201).json({
@@ -60,8 +56,6 @@ export const updateBook = asyncHandler(async (req, res) => {
 });
 
 export const setBookStatus = asyncHandler(async (req, res) => {
-  helper.checkMandatoryFields(req.body, ["status"]);
-
   const book = await bookService.setBookStatus(req.params.bookId, req.body.status, req.transaction);
 
   return res.status(200).json({

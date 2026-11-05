@@ -2,6 +2,8 @@ import express from "express";
 import verifyToken from "../middlewares/verifyToken.js";
 import verifyRole from "../middlewares/verifyRole.js";
 import { inTransaction } from "../middlewares/transaction.js";
+import validate from "../middlewares/validate.js";
+import * as schemas from "../validators/Payment.Validator.js";
 import * as packageController from "../controller/Package.Controller.js";
 
 const router = express.Router();
@@ -15,16 +17,34 @@ router.get("/plans", packageController.getPlans);
 
 router.get("/admin/plans", ...admin, packageController.getAllPlans);
 
-router.post("/admin/plans", ...admin, inTransaction, packageController.createPlan);
+router.post(
+  "/admin/plans",
+  ...admin,
+  validate(schemas.createPlan),
+  inTransaction,
+  packageController.createPlan,
+);
 
-router.patch("/admin/plans/:planId", ...admin, inTransaction, packageController.updatePlan);
+router.patch(
+  "/admin/plans/:planId",
+  ...admin,
+  validate(schemas.updatePlan),
+  inTransaction,
+  packageController.updatePlan,
+);
 
 router.get("/admin/purchases", ...admin, packageController.getAdminPackages);
 
 // --- User
 
 // Body: { planId, method? }
-router.post("/purchase", verifyToken, inTransaction, packageController.purchase);
+router.post(
+  "/purchase",
+  verifyToken,
+  validate(schemas.purchase),
+  inTransaction,
+  packageController.purchase,
+);
 
 router.get("/mine", verifyToken, packageController.getMyPackages);
 

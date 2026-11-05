@@ -2,7 +2,6 @@ import asyncHandler from "../middlewares/asyncHandler.js";
 import * as paymentService from "../services/Payment.Service.js";
 import { uploadPaymentProof } from "../services/Common.Service.js";
 import { listProviders } from "../services/payments/providers.js";
-import helper from "../utils/helper.js";
 
 export const getMethods = asyncHandler(async (req, res) => {
   return res.status(200).json({
@@ -22,8 +21,6 @@ export const uploadProof = asyncHandler(async (req, res) => {
 });
 
 export const submitProof = asyncHandler(async (req, res) => {
-  helper.checkMandatoryFields(req.body, ["transactionId", "senderNumber", "screenshot"]);
-
   await paymentService.submitProof(req.params.paymentId, req.userID, req.body, req.transaction);
 
   return res.status(200).json({
@@ -71,8 +68,6 @@ export const approvePayment = asyncHandler(async (req, res) => {
 });
 
 export const rejectPayment = asyncHandler(async (req, res) => {
-  helper.checkMandatoryFields(req.body, ["reason"]);
-
   await paymentService.rejectPayment(
     req.params.paymentId,
     req.userID,
@@ -87,8 +82,6 @@ export const rejectPayment = asyncHandler(async (req, res) => {
 });
 
 export const resolveRefund = asyncHandler(async (req, res) => {
-  helper.checkMandatoryFields(req.body, ["status"]);
-
   await paymentService.resolveRefund(req.params.paymentId, req.body, req.transaction);
 
   return res.status(200).json({

@@ -3,6 +3,8 @@ import verifyToken from "../middlewares/verifyToken.js";
 import verifyRole from "../middlewares/verifyRole.js";
 import { inTransaction } from "../middlewares/transaction.js";
 import { bookFileUpload } from "../middlewares/upload.js";
+import validate from "../middlewares/validate.js";
+import * as schemas from "../validators/Book.Validator.js";
 import * as bookController from "../controller/Book.Controller.js";
 
 const router = express.Router();
@@ -18,11 +20,23 @@ router.get("/admin/:bookId", ...admin, bookController.getAdminBook);
 // Multipart field "file": a PDF, stored privately on Cloudinary.
 router.post("/upload-file", ...admin, bookFileUpload.single("file"), bookController.uploadFile);
 
-router.post("/", ...admin, inTransaction, bookController.createBook);
+router.post("/", ...admin, validate(schemas.createBook), inTransaction, bookController.createBook);
 
-router.patch("/:bookId", ...admin, inTransaction, bookController.updateBook);
+router.patch(
+  "/:bookId",
+  ...admin,
+  validate(schemas.updateBook),
+  inTransaction,
+  bookController.updateBook,
+);
 
-router.patch("/:bookId/status", ...admin, inTransaction, bookController.setBookStatus);
+router.patch(
+  "/:bookId/status",
+  ...admin,
+  validate(schemas.setStatus),
+  inTransaction,
+  bookController.setBookStatus,
+);
 
 // --- Public catalogue (no login needed to browse covers and details)
 

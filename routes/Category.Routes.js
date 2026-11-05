@@ -4,6 +4,8 @@ import verifyToken from "../middlewares/verifyToken.js";
 import * as categoryController from "../controller/Category.Controller.js";
 import verifyRole from "../middlewares/verifyRole.js";
 import { createLimiter } from "../middlewares/rateLimiter.js";
+import validate from "../middlewares/validate.js";
+import * as schemas from "../validators/Community.Validator.js";
 
 const router = express.Router();
 
@@ -17,7 +19,14 @@ const suggestLimiter = createLimiter({
 
 // Admin: creates an approved category. User: suggests one (pending review).
 // Body: { name, description? }
-router.post("/", verifyToken, suggestLimiter, inTransaction, categoryController.createCategory);
+router.post(
+  "/",
+  verifyToken,
+  suggestLimiter,
+  validate(schemas.createCategory),
+  inTransaction,
+  categoryController.createCategory,
+);
 
 router.get("/", verifyToken, categoryController.getCategories);
 
@@ -28,6 +37,7 @@ router.patch(
   "/:categoryId",
   verifyToken,
   verifyRole("admin"),
+  validate(schemas.updateCategory),
   inTransaction,
   categoryController.updateCategory,
 );

@@ -1,6 +1,5 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
 import * as userService from "../services/User.Service.js";
-import helper from "../utils/helper.js";
 
 // get User's profile
 export const getUserProfile = asyncHandler(async (req, res) => {
@@ -32,9 +31,6 @@ export const updatePassword = asyncHandler(async (req, res) => {
   const session = req.transaction;
   const userId = req.userID;
 
-  // Validation
-  helper.checkMandatoryFields(req.body, ["currentPassword", "newPassword"]);
-
   await userService.updatePassword(userId, req.body, session);
 
   return res.status(200).json({
@@ -47,8 +43,6 @@ export const updatePassword = asyncHandler(async (req, res) => {
 export const addOrUpdateProfilePicture = asyncHandler(async (req, res) => {
   const session = req.transaction;
   const userId = req.userID;
-
-  helper.checkMandatoryFields(req.body, ["profilePicture"]);
 
   const body = { userId, ...req.body };
 

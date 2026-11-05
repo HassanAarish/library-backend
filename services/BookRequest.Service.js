@@ -246,7 +246,7 @@ export const followRequest = async (requestId, userId, note, session = null) => 
       },
       $inc: { followerCount: 1 },
     },
-    { new: true, session, runValidators: true },
+    { returnDocument: "after", session, runValidators: true },
   );
   if (!updated) {
     throw new ErrorResponse("This request just changed. Please try again.", 409);
@@ -265,7 +265,7 @@ export const unfollowRequest = async (requestId, userId, session = null) => {
   const updated = await BookRequest.findOneAndUpdate(
     { _id: requestId, isOpen: true, "followers.user": userId },
     { $pull: { followers: { user: userId } }, $inc: { followerCount: -1 } },
-    { new: true, session },
+    { returnDocument: "after", session },
   );
   if (!updated) {
     throw new ErrorResponse("You're not following this open request.", 404);

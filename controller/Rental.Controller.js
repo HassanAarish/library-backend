@@ -1,6 +1,5 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
 import * as rentalService from "../services/Rental.Service.js";
-import helper from "../utils/helper.js";
 
 export const getAvailability = asyncHandler(async (req, res) => {
   const data = await rentalService.getAvailability(req.params.bookId, req.userID);
@@ -12,8 +11,6 @@ export const getAvailability = asyncHandler(async (req, res) => {
 });
 
 export const createRental = asyncHandler(async (req, res) => {
-  helper.checkMandatoryFields(req.body, ["bookId"]);
-
   const { rental, payment } = await rentalService.createRental(
     req.body,
     req.userID,

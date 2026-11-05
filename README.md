@@ -28,6 +28,9 @@ This service is the API half of a two-part app. The React SPA lives in
 | Media | **Cloudinary** (image/file storage) |
 | Caching & rate limiting | **Redis** (`ioredis`) with in-memory fallback (`node-cache`, `rate-limiter-flexible`) |
 | Scheduling | `node-cron` |
+| Real-time | **Socket.IO** (+ Redis adapter when `REDIS_URL` is set) |
+| Validation | **zod** (request bodies and `.env` at startup) |
+| Testing | **Vitest** + `mongodb-memory-server` + `socket.io-client` |
 | Tooling | **ESLint 10** (flat config) + **Prettier** |
 
 ---
@@ -39,16 +42,24 @@ change an endpoint you touch all four layers:
 
 ```
 routes/X.Routes.js  →  controller/X.Controller.js  →  services/X.Service.js  →  models/X.Model.js
-   (HTTP + auth)          (validate + shape)            (business + DB logic)        (schema)
+ (HTTP, auth, validate)    (shape the response)         (business + DB logic)        (schema)
 ```
 
 - **Routes auto-mount by filename.** `routes/indexRoutes.js` scans for
   `*.Routes.js` files and mounts each at `/<basename-lowercased>`
   (e.g. `Auth.Routes.js` → `/auth`). No central registry — adding a correctly
   named file is enough.
-- **Controllers are thin** — validate input (`helper.checkMandatoryFields`),
-  call the service, shape the `{ success, data | message }` JSON response. They
-  never touch Mongoose directly.
+- **Request bodies are validated with zod** before the handler runs:
+  `validate(schema)` on the route, with schemas in `validators/*.Validator.js`
+  and shared field rules in `validators/fields.js`. Unknown fields are dropped
+  and strings trimmed, so services only see what they expect. Invalid input
+  gets `400` with every problem listed, e.g.
+  `"password: must be at least 8 characters; email: must be a valid email address"`.
+  Validation runs after auth and rate limiting and before `inTransaction`, so
+  bad input never opens a transaction.
+- **Controllers are thin**: call the service and shape the
+  `{ success, data | message }` JSON response. They never touch Mongoose
+  directly.
 - **Services hold all business logic and DB access** and accept an optional
   Mongoose `session` for transactions.
 - Every async controller is wrapped in `asyncHandler` so errors bubble to a
@@ -454,23 +465,32 @@ Readers see their suggestions at `GET /category/mine`.
 
 ```
 library-backend/
-├── config/          dotenv, db (Mongo), redis (optional), morgan logger
+├── config/          dotenv, env (startup check), db (Mongo), redis (optional), policies, morgan logger
 ├── controller/      thin request handlers (one per domain)
 ├── cron/            scheduled jobs (unverified-user cleanup, rental lifecycle, credit reminders)
-├── middlewares/     requestLogger, verifyToken, verifyRole, inTransaction, rateLimiter, asyncHandler, errorHandler
+├── middlewares/     requestLogger, verifyToken, verifyRole, validate, inTransaction, rateLimiter, asyncHandler, errorHandler
 ├── models/          Mongoose schemas
+├── realtime/        Socket.IO server (rooms, auth, emitters)
 ├── routes/          *.Routes.js (auto-mounted by filename)
 ├── scripts/         one-off maintenance (sync-indexes.js, migrate-books-v2.js)
 ├── services/        business logic + DB access
+├── tests/           Vitest suites + tests/support (in-memory DB, test server, env)
 ├── utils/           audit, requestContext, redact, emailClient, socialVerify, twoFactor, cache, generateTokens, fileLogger, helper, errorResponse
-└── server.js        app entry
+├── validators/      zod request schemas (*.Validator.js) + shared field rules
+├── app.js           the Express app (no DB, port or cron; tests import this)
+└── server.js        entry: env check → DB → HTTP + Socket.IO → cron
 ```
 
 ---
 
 ## ⚙️ Environment variables
 
-Create a `.env` in `library-backend/`:
+Create a `.env` in `library-backend/`. **The server checks it on startup**
+(`config/env.js`). A missing or malformed required setting stops the server
+with a list of exactly what's wrong (names only, never values). Optional
+features that are switched off (Easypaisa, Google/Facebook sign-in, Redis) show
+a warning. In production it also requires `CLIENT_URL` and a `SECRET_KEY` of at
+least 32 characters.
 
 ```bash
 # Core
@@ -519,7 +539,7 @@ EASYPAISA_ACCOUNT_NUMBER=03XXXXXXXXX
 
 > Without `REDIS_URL`, rate limiting & caching fall back to in-memory — fine for
 > a single instance. The `PG_ADMIN_*` keys are unused legacy (the app is
-> MongoDB-only).
+> MongoDB-only) and can be removed from `.env`.
 
 ---
 
@@ -540,8 +560,24 @@ The API runs on `http://localhost:5001`. Health check: `GET /health`.
 |---------|-------------|
 | `npm run dev` | Start with nodemon (hot reload) |
 | `npm start` | Start with plain node |
+| `npm test` / `test:watch` | Vitest (once / watch mode) |
 | `npm run lint` / `lint:fix` | ESLint |
 | `npm run format` / `format:check` | Prettier write / check |
+
+### Tests
+
+`npm test` runs every suite in `tests/` against the real app (Express +
+Socket.IO, started in-process) and an **in-memory MongoDB replica set**. No
+real database, email, Cloudinary or payment account is ever touched:
+`tests/support/env.js` sets a test-only environment, and `config/dotenv.js`
+never loads `.env` when `NODE_ENV=test`. The first run downloads a MongoDB
+binary (~100 MB, cached afterwards).
+
+- `tests/support/testServer.js`: `startTestServer(dbName)` gives each file a
+  fresh database plus helpers: `api()`, `mkUser()`, `mkBook()`, `connect()`
+  (socket client) and `mailFailures(title)`. SMTP points at a dead port, so
+  every email a flow sends shows up as a logged failure the test can count.
+- CI (`.github/workflows/verify.yml`) runs lint and the tests on every push.
 
 ---
 

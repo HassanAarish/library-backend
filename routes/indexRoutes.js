@@ -13,7 +13,7 @@ const routeFiles = fs
   .filter((file) => file.endsWith(".Routes.js") && file !== "indexRoutes.js");
 
 for (const file of routeFiles) {
-  const module = await import(`./${file}`);
+  const module = await import(/* @vite-ignore */ `./${file}`);
   const routes = module?.default;
 
   if (!routes) {

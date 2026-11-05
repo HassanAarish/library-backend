@@ -4,6 +4,8 @@ import verifyRole from "../middlewares/verifyRole.js";
 import optionalAuth from "../middlewares/optionalAuth.js";
 import { inTransaction } from "../middlewares/transaction.js";
 import { createLimiter } from "../middlewares/rateLimiter.js";
+import validate from "../middlewares/validate.js";
+import * as schemas from "../validators/Community.Validator.js";
 import policy from "../config/bookRequestPolicy.js";
 import * as bookRequestController from "../controller/BookRequest.Controller.js";
 
@@ -33,6 +35,7 @@ router.get("/admin/:requestId", ...admin, bookRequestController.getAdminRequest)
 router.patch(
   "/admin/:requestId/status",
   ...admin,
+  validate(schemas.bookRequestStatus),
   inTransaction,
   bookRequestController.updateStatus,
 );
@@ -41,17 +44,31 @@ router.patch(
 router.post(
   "/admin/:requestId/fulfill",
   ...admin,
+  validate(schemas.fulfillBookRequest),
   inTransaction,
   bookRequestController.fulfillRequest,
 );
 
 // Body: { intoId }
-router.post("/admin/:requestId/merge", ...admin, inTransaction, bookRequestController.mergeRequest);
+router.post(
+  "/admin/:requestId/merge",
+  ...admin,
+  validate(schemas.mergeBookRequest),
+  inTransaction,
+  bookRequestController.mergeRequest,
+);
 
 // --- User
 
 // Body: { title, author?, isbn?, language?, note? }
-router.post("/", verifyToken, requestLimiter, inTransaction, bookRequestController.createRequest);
+router.post(
+  "/",
+  verifyToken,
+  requestLimiter,
+  validate(schemas.createBookRequest),
+  inTransaction,
+  bookRequestController.createRequest,
+);
 
 router.get("/mine", verifyToken, bookRequestController.getMyRequests);
 
@@ -62,6 +79,7 @@ router.post(
   "/:requestId/follow",
   verifyToken,
   requestLimiter,
+  validate(schemas.followBookRequest),
   inTransaction,
   bookRequestController.followRequest,
 );

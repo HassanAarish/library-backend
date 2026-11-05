@@ -2,6 +2,8 @@ import express from "express";
 import * as commonController from "../controller/Common.Controller.js";
 import verifyToken from "../middlewares/verifyToken.js";
 import { imageUpload } from "../middlewares/upload.js";
+import validate from "../middlewares/validate.js";
+import { removeFiles } from "../validators/Community.Validator.js";
 
 const router = express.Router();
 
@@ -11,6 +13,7 @@ const router = express.Router();
 router.post("/upload", verifyToken, imageUpload.array("files"), commonController.upload);
 
 // Users can only delete their own uploads (admins: any).
-router.post("/remove", verifyToken, commonController.remove);
+// Body: { public_id } or { publicIds: [...] }
+router.post("/remove", verifyToken, validate(removeFiles), commonController.remove);
 
 export default router;

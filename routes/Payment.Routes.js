@@ -4,6 +4,8 @@ import verifyRole from "../middlewares/verifyRole.js";
 import { inTransaction } from "../middlewares/transaction.js";
 import { imageUpload } from "../middlewares/upload.js";
 import { authLimiter } from "../middlewares/rateLimiter.js";
+import validate from "../middlewares/validate.js";
+import * as schemas from "../validators/Payment.Validator.js";
 import * as paymentController from "../controller/Payment.Controller.js";
 
 const router = express.Router();
@@ -23,9 +25,21 @@ router.patch(
   paymentController.approvePayment,
 );
 
-router.patch("/admin/:paymentId/reject", ...admin, inTransaction, paymentController.rejectPayment);
+router.patch(
+  "/admin/:paymentId/reject",
+  ...admin,
+  validate(schemas.rejectPayment),
+  inTransaction,
+  paymentController.rejectPayment,
+);
 
-router.patch("/admin/:paymentId/refund", ...admin, inTransaction, paymentController.resolveRefund);
+router.patch(
+  "/admin/:paymentId/refund",
+  ...admin,
+  validate(schemas.resolveRefund),
+  inTransaction,
+  paymentController.resolveRefund,
+);
 
 // --- User
 
@@ -47,6 +61,7 @@ router.post(
   "/:paymentId/proof",
   verifyToken,
   authLimiter,
+  validate(schemas.submitProof),
   inTransaction,
   paymentController.submitProof,
 );

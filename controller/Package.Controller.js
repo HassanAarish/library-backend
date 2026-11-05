@@ -1,6 +1,5 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
 import * as packageService from "../services/Package.Service.js";
-import helper from "../utils/helper.js";
 
 export const getPlans = asyncHandler(async (req, res) => {
   const data = await packageService.getActivePlans();
@@ -12,8 +11,6 @@ export const getPlans = asyncHandler(async (req, res) => {
 });
 
 export const purchase = asyncHandler(async (req, res) => {
-  helper.checkMandatoryFields(req.body, ["planId"]);
-
   const data = await packageService.purchase(
     req.body.planId,
     req.userID,
@@ -58,8 +55,6 @@ export const getAllPlans = asyncHandler(async (req, res) => {
 });
 
 export const createPlan = asyncHandler(async (req, res) => {
-  helper.checkMandatoryFields(req.body, ["name", "credits", "price"]);
-
   const plan = await packageService.createPlan(req.body, req.transaction);
 
   return res.status(201).json({

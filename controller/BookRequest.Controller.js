@@ -1,10 +1,7 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
 import * as bookRequestService from "../services/BookRequest.Service.js";
-import helper from "../utils/helper.js";
 
 export const createRequest = asyncHandler(async (req, res) => {
-  helper.checkMandatoryFields(req.body, ["title"]);
-
   const data = await bookRequestService.createRequest(req.body, req.userID, req.transaction);
 
   if (data.alreadyInLibrary) {

@@ -1,11 +1,8 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
-import helper from "../utils/helper.js";
 import * as categoryService from "../services/Category.Service.js";
 
 export const createCategory = asyncHandler(async (req, res) => {
   const session = req.transaction;
-
-  helper.checkMandatoryFields(req.body, ["name"]);
 
   await categoryService.createCategory(req.body, req.userID, req.role, session);
 

@@ -3,6 +3,8 @@ import verifyToken from "../middlewares/verifyToken.js";
 import verifyRole from "../middlewares/verifyRole.js";
 import optionalAuth from "../middlewares/optionalAuth.js";
 import { inTransaction } from "../middlewares/transaction.js";
+import validate from "../middlewares/validate.js";
+import { createRental } from "../validators/Rental.Validator.js";
 import * as rentalController from "../controller/Rental.Controller.js";
 
 const router = express.Router();
@@ -15,7 +17,7 @@ router.get("/availability/:bookId", optionalAuth, rentalController.getAvailabili
 router.get("/admin", verifyToken, verifyRole("admin"), rentalController.getAdminRentals);
 
 // Body: { bookId, startDate?, paymentMethod: "single" | "credit", method? }
-router.post("/", verifyToken, inTransaction, rentalController.createRental);
+router.post("/", verifyToken, validate(createRental), inTransaction, rentalController.createRental);
 
 router.get("/mine", verifyToken, rentalController.getMyRentals);
 
