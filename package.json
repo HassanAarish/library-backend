@@ -1,9 +1,38 @@
 {
   "name": "library-backend",
-  "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LibraryHub API: accounts, catalogue, one-copy rentals and queues, plans, Easypaisa payment review, a watermarked page reader, book requests and live notifications. Built with Express, MongoDB and Socket.IO.",
+  "keywords": [
+    "libraryhub",
+    "book-rental",
+    "library",
+    "pakistan",
+    "easypaisa",
+    "rest-api",
+    "express",
+    "mongodb",
+    "mongoose",
+    "socket.io"
+  ],
+  "homepage": "https://github.com/HassanAarish/library-backend#readme",
+  "bugs": {
+    "url": "https://github.com/HassanAarish/library-backend/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HassanAarish/library-backend.git"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "author": {
+    "name": "Aarish",
+    "url": "https://github.com/HassanAarish"
+  },
   "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
@@ -14,9 +43,6 @@
     "format:check": "prettier --check .",
     "format": "prettier --write ."
   },
-  "keywords": [],
-  "author": "Aarish",
-  "license": "MIT",
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
     "bcryptjs": "^3.0.3",

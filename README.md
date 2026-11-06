@@ -5,7 +5,7 @@ platform with role-based access (readers & admins), a full-featured
 authentication system, paid rentals, and a community-moderated catalog.
 
 This service is the API half of a two-part app. The React SPA lives in
-`../library-fronend`.
+`../library-frontend`.
 
 > **Highlight:** the authentication system is the centerpiece — email/password
 > with OTP email verification, social login (Google / Facebook),
@@ -674,3 +674,16 @@ categories use the admin moderation workflow.
 ---
 
 _Built by Aarish · MIT License_
+
+---
+
+## 📜 License & contributing
+
+LibraryHub is **source-available, not open source**: you may read the code, run
+it locally and send improvements, but not reuse it elsewhere. See
+[`LICENSE`](LICENSE).
+
+Contributions are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for how
+to report bugs, make a change and open a pull request, and for the contributor
+terms. Release notes are in [`CHANGELOG.md`](CHANGELOG.md); versions follow
+semantic versioning, starting at **0.1.0**.
