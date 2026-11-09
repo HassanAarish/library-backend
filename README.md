@@ -269,10 +269,9 @@ GET /reader/:bookId/pages/:page   → one page as a JPEG, watermarked for this r
   via `sharp`), and returns it with `Cache-Control: no-store`. Only one
   un-watermarked render per page is cached, so Cloudinary usage doesn't grow
   with the number of readers.
-- **Anti-scraping** — flags are `critical` audit events (`reader.suspicious`) for
-  the admin to review; nobody is blocked automatically:
-  - more than 40 pages/min of one book → throttled (429) and flagged;
-  - the same reader on more than 3 networks within 30 minutes → flagged.
+- **Anti-scraping** — unusual reading is throttled and raised as a `critical` audit
+  event (`reader.suspicious`) for the admin to review. The limits are private: set
+  them in the environment (see *Environment variables*) and don't publish them.
 - Every page view is in the request log; opening a book is `reader.open`.
 
 > **Deployment notes:** (1) `sharp` renders the watermark text with system
@@ -541,6 +540,11 @@ CLIENT_URL=http://localhost:5173   # used to build the password-reset link
 
 # Activity logging (optional)
 # REQUEST_LOG_RETENTION_DAYS=90   # how long per-request logs are kept
+
+# Required in production. Choose your own values and keep them out of the repo.
+# READER_PAGES_PER_MINUTE=        # pages of one book per minute before throttling
+# READER_MAX_NETWORKS=            # networks one reader may use before a flag
+# READER_NETWORK_WINDOW_MINUTES=  # how long those networks are remembered
 # NOTIFICATION_RETENTION_DAYS=180 # how long in-app notifications are kept
 
 # Email (SMTP) — used for OTP + password-reset

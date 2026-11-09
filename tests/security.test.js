@@ -517,7 +517,7 @@ describe("reader", () => {
     expect(JSON.stringify(r.json)).not.toContain("cloudinary");
   });
 
-  test("reader: 40+ pages/min is throttled", async () => {
+  test("reader: pulling pages too fast is throttled", async () => {
     // Many networks -> critical flag (spoofed X-Forwarded-For through trust proxy).
     for (const ip of ["10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4"]) {
       await t.api("GET", `/reader/${bookId}/pages/1`, {

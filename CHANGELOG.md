@@ -6,6 +6,10 @@ All notable changes to the LibraryHub API. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Reader anti-scraping limits now come from private environment variables, which
+  are required in production.
+
 ## [0.1.0] - not yet released
 
 The first version of the rebuilt API.

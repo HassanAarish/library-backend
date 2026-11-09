@@ -6,6 +6,7 @@ import ErrorResponse from "../utils/errorResponse.js";
 import cache from "../utils/cache.js";
 import { audit } from "../utils/audit.js";
 import { watermarkPage } from "../utils/watermark.js";
+import readerPolicy from "../config/readerPolicy.js";
 
 const PAGE_WIDTH = 1200; // px — readable on desktop, still light on mobile data
 const FETCH_TIMEOUT_MS = 15000;
@@ -21,8 +22,7 @@ const pageCache = new NodeCache({
 
 // Reading the same book from many networks in a short window is a sign of a
 // shared account or a scraping setup.
-const IP_WINDOW_SECONDS = 30 * 60;
-const MAX_IPS_PER_WINDOW = 3;
+const { networkWindowSeconds: IP_WINDOW_SECONDS, maxNetworks: MAX_IPS_PER_WINDOW } = readerPolicy;
 
 /**
  * The rental (if any) that lets `userId` read `bookId` right now. Access is

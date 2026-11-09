@@ -58,9 +58,20 @@ const schema = z.object({
 
   REQUEST_LOG_RETENTION_DAYS: optional(positiveInt),
   NOTIFICATION_RETENTION_DAYS: optional(positiveInt),
+
+  // Private limits that spot copying (config/readerPolicy.js).
+  READER_PAGES_PER_MINUTE: optional(positiveInt),
+  READER_MAX_NETWORKS: optional(positiveInt),
+  READER_NETWORK_WINDOW_MINUTES: optional(positiveInt),
 });
 
 const isSet = (v) => typeof v === "string" && v.trim() !== "";
+
+const READER_LIMITS = [
+  "READER_PAGES_PER_MINUTE",
+  "READER_MAX_NETWORKS",
+  "READER_NETWORK_WINDOW_MINUTES",
+];
 
 // Rules that involve more than one setting. Run on the raw values so they are
 // reported even when other settings are invalid.
@@ -70,6 +81,11 @@ const crossChecks = (env) => {
 
   if (production && !isSet(env.CLIENT_URL)) {
     errors.push("CLIENT_URL is required in production (password-reset links and CORS use it)");
+  }
+  for (const name of READER_LIMITS) {
+    if (production && !isSet(env[name])) {
+      errors.push(`${name} is required in production (choose a private value; see README)`);
+    }
   }
   if (production && isSet(env.SECRET_KEY) && env.SECRET_KEY.length < 32) {
     errors.push("SECRET_KEY must be at least 32 characters in production");

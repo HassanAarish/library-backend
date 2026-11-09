@@ -7,6 +7,9 @@ const valid = {
   MONGO_URI: "mongodb+srv://user:pass@cluster.example.net/library",
   SECRET_KEY: "x".repeat(40),
   CLIENT_URL: "https://libraryhub.pk",
+  READER_PAGES_PER_MINUTE: "7",
+  READER_MAX_NETWORKS: "2",
+  READER_NETWORK_WINDOW_MINUTES: "15",
   CLOUDINARY_CLOUD_NAME: "c",
   CLOUDINARY_API_KEY: "k",
   CLOUDINARY_API_SECRET: "s",
@@ -56,12 +59,32 @@ describe("environment check", () => {
     );
   });
 
+  test("production needs the private reader limits, and they must be numbers", () => {
+    const { errors } = checkEnv({
+      ...valid,
+      READER_PAGES_PER_MINUTE: undefined,
+      READER_MAX_NETWORKS: "",
+      READER_NETWORK_WINDOW_MINUTES: "soon",
+    });
+    expect(errors).toContain(
+      "READER_PAGES_PER_MINUTE is required in production (choose a private value; see README)",
+    );
+    expect(errors).toContain(
+      "READER_MAX_NETWORKS is required in production (choose a private value; see README)",
+    );
+    expect(errors).toContain("READER_NETWORK_WINDOW_MINUTES must be a whole positive number");
+    expect(errors.join(" ")).not.toContain("soon");
+  });
+
   test("development tolerates a short key and missing CLIENT_URL, with a warning", () => {
     const { errors, warnings } = checkEnv({
       ...valid,
       NODE_ENV: "development",
       SECRET_KEY: "short",
       CLIENT_URL: "",
+      READER_PAGES_PER_MINUTE: undefined,
+      READER_MAX_NETWORKS: undefined,
+      READER_NETWORK_WINDOW_MINUTES: undefined,
     });
     expect(errors).toEqual([]);
     expect(warnings.some((w) => w.startsWith("CLIENT_URL is not set"))).toBe(true);
