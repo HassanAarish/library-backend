@@ -5,6 +5,7 @@ import User from "../models/User.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import helper from "../utils/helper.js";
 import { notifyUsers } from "../utils/emailClient.js";
+import { pushNotifications } from "./Push.Service.js";
 import { afterCommit } from "../utils/requestContext.js";
 import { emitToAdmins, emitToBook, emitToUser } from "../realtime/socket.js";
 
@@ -30,7 +31,7 @@ const optedOutOfEmail = async (userIds) => {
 
 /**
  * Save an in-app notification for each recipient, push it to their open
- * sockets, and (optionally) email it. Blocked users get nothing.
+ * sockets and their phones, and (optionally) email it. Blocked users get nothing.
  *
  * email: "always"     transactional (payments, refunds) — sent even if the
  *                     user turned email notifications off
@@ -50,6 +51,7 @@ const deliver = async (recipients, { type, title, message, data = {}, email = "p
     users.map((u) => ({ recipient: u._id, type, title, message, data })),
   );
   docs.forEach((doc) => emitToUser(doc.recipient, "notification:new", toPayload(doc)));
+  pushNotifications(docs); // to their phones (Push.Service); never throws
 
   if (email) {
     const skip = email === "preference" ? await optedOutOfEmail(ids) : new Set();

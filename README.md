@@ -434,6 +434,18 @@ blocked users get nothing.
 Email follows the user's `notifications.email` preference, except payment and
 refund messages, which are always sent.
 
+**Push to the mobile app**: every reader notification is also pushed to the
+phones they signed in on (`services/Push.Service.js`), through Expo's push
+service, which hands it to Firebase (FCM) for Android. Push follows the
+`notifications.push` preference, and admin notifications are never pushed (the
+admin console is on the website). Push text follows the app's Google Play rule:
+payment, refund and "rent it" wording is replaced with neutral text
+(`pushContent()`), and anything else that mentions paying falls back to a
+generic message. The push carries `{ notificationId, type, data }` so the app
+opens the matching screen. Phones that Expo reports as no longer registered are
+forgotten; a user keeps at most 10. A failed push never affects the in-app
+notification.
+
 **Connecting**: same host and port as the API.
 
 ```js
@@ -464,6 +476,8 @@ GET    /notification/unread-count
 PATCH  /notification/read         { ids: [...] }
 PATCH  /notification/read-all
 DELETE /notification/:id
+POST   /notification/devices      { token: "ExponentPushToken[…]", platform: "android" | "ios" }
+DELETE /notification/devices      { token }    (sign-out; only the signed-in owner's)
 ```
 
 **Category suggestions**: any user can suggest a category with `POST /category`
@@ -546,6 +560,7 @@ CLIENT_URL=http://localhost:5173   # used to build the password-reset link
 # READER_MAX_NETWORKS=            # networks one reader may use before a flag
 # READER_NETWORK_WINDOW_MINUTES=  # how long those networks are remembered
 # NOTIFICATION_RETENTION_DAYS=180 # how long in-app notifications are kept
+# EXPO_ACCESS_TOKEN=               # push; only if Expo's enhanced push security is on
 
 # Email (SMTP) — used for OTP + password-reset
 EMAIL=<smtp-account>

@@ -53,6 +53,19 @@ export const markRead = z.object({
     .max(100, { message: "at most 100 ids at once" }),
 });
 
+// Expo push token, e.g. ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
+const pushToken = z
+  .string({ message: "is required" })
+  .trim()
+  .regex(/^Expo(nent)?PushToken\[[^\]\s]{10,200}\]$/, { message: "must be an Expo push token" });
+
+export const registerDevice = z.object({
+  token: pushToken,
+  platform: z.enum(["android", "ios"], { message: "must be android or ios" }),
+});
+
+export const unregisterDevice = z.object({ token: pushToken });
+
 // --- Uploads
 
 export const removeFiles = z

@@ -6,6 +6,12 @@ All notable changes to the LibraryHub API. The format follows
 
 ## [Unreleased]
 
+### Added
+- Push notifications to the mobile app: `POST`/`DELETE /notification/devices` save
+  and remove a phone's Expo push token, and every reader notification is also pushed
+  (through Expo's push service) unless the reader turned push off. Push text never
+  mentions payments or renting (Google Play rule). Optional `EXPO_ACCESS_TOKEN`.
+
 ### Changed
 - Reader anti-scraping limits now come from private environment variables, which
   are required in production.
