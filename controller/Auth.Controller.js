@@ -50,8 +50,11 @@ export const login = asyncHandler(async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    message: "Logged in successfully",
+    message: result.deletionCancelled
+      ? "Welcome back! Your account will not be deleted."
+      : "Logged in successfully",
     token: result.token,
+    ...(result.deletionCancelled && { deletionCancelled: true }),
   });
 });
 
@@ -108,7 +111,10 @@ export const socialLogin = asyncHandler(async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    message: "Logged in successfully",
+    message: result.deletionCancelled
+      ? "Welcome back! Your account will not be deleted."
+      : "Logged in successfully",
     token: result.token,
+    ...(result.deletionCancelled && { deletionCancelled: true }),
   });
 });

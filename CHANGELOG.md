@@ -7,12 +7,19 @@ All notable changes to the LibraryHub API. The format follows
 ## [Unreleased]
 
 ### Added
+- Account deletion: `GET`/`POST /user/deletion`. Blocked while a rental, payment or
+  refund is in progress; unused credits must be given up. The account closes at once
+  (sessions end, `account:closed` socket event, email), signing in within 14 days
+  cancels it, and an hourly job then anonymises it while keeping payment, rental,
+  review and request records.
 - Push notifications to the mobile app: `POST`/`DELETE /notification/devices` save
   and remove a phone's Expo push token, and every reader notification is also pushed
   (through Expo's push service) unless the reader turned push off. Push text never
   mentions payments or renting (Google Play rule). Optional `EXPO_ACCESS_TOKEN`.
 
 ### Changed
+- A wrong current password on password change is now a 400 instead of a 401, so
+  the website no longer signs the reader out for a typo.
 - Reader anti-scraping limits now come from private environment variables, which
   are required in production.
 

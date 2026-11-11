@@ -10,6 +10,7 @@ import { getEnv } from "../config/dotenv.js";
 import { audit } from "../utils/audit.js";
 import { afterCommit } from "../utils/requestContext.js";
 import { disconnectStaleSessions } from "../realtime/socket.js";
+import { cancelDeletionOnSignIn } from "./AccountDeletion.Service.js";
 import helper from "../utils/helper.js";
 
 // Maps a social provider to the User field that stores its account id.
@@ -33,7 +34,7 @@ const sanitizeUser = (user) => {
  * caller is forced through the /twofactor/verify challenge. This is what keeps
  * social / linked accounts from bypassing 2FA.
  */
-const issueSession = (user, method) => {
+const issueSession = async (user, method, session = null) => {
   const auditDetails = {
     actor: user._id,
     actorEmail: user.email,
@@ -46,7 +47,9 @@ const issueSession = (user, method) => {
   }
 
   audit("auth.login", auditDetails);
-  return { user: sanitizeUser(user), token: generateToken(user) };
+  // Signing in keeps an account that was waiting to be deleted.
+  const deletionCancelled = await cancelDeletionOnSignIn(user, session);
+  return { user: sanitizeUser(user), token: generateToken(user), deletionCancelled };
 };
 
 // Records a failed login attempt. `user` is undefined for unknown emails.
@@ -252,7 +255,7 @@ export const login = async (body, session = null) => {
     throw new ErrorResponse("Please verify your email before logging in.", 403);
   }
 
-  return issueSession(user, "email");
+  return issueSession(user, "email", session);
 };
 
 export const forgotPassword = async (body, session = null) => {
@@ -351,7 +354,7 @@ export const socialLogin = async (body, session = null) => {
       auditLoginFailure("blocked", { user: byProvider, method: provider });
       throw new ErrorResponse("Your account has been suspended. Please contact support.", 403);
     }
-    return issueSession(byProvider, provider);
+    return issueSession(byProvider, provider, session);
   }
 
   // Beyond this point we need an email to match or create an account.
@@ -410,7 +413,7 @@ export const socialLogin = async (body, session = null) => {
       }
     }
 
-    return issueSession(byEmail, provider);
+    return issueSession(byEmail, provider, session);
   }
 
   // 4. Brand-new social user — require a verified email to create one.
@@ -453,7 +456,7 @@ export const socialLogin = async (body, session = null) => {
       metadata: { method: provider },
     });
 
-    return issueSession(newUser, provider);
+    return issueSession(newUser, provider, session);
   } catch (err) {
     // DB write failed after the upload — remove the orphaned Cloudinary asset.
     if (avatar.public_id) await removeFiles(avatar.public_id).catch(() => {});

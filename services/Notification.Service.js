@@ -42,7 +42,13 @@ const deliver = async (recipients, { type, title, message, data = {}, email = "p
   const ids = [...new Set(recipients.filter(Boolean).map(String))];
   if (!ids.length) return;
 
-  const users = await User.find({ _id: { $in: ids }, isBlocked: { $ne: true } })
+  // Nothing reaches blocked accounts or ones closed for deletion.
+  const users = await User.find({
+    _id: { $in: ids },
+    isBlocked: { $ne: true },
+    "deletion.scheduledFor": { $exists: false },
+    deletedAt: { $exists: false },
+  })
     .select("email")
     .lean();
   if (!users.length) return;

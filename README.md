@@ -178,6 +178,30 @@ token.
 - OTPs use `crypto.randomInt` and **lock after 5 wrong guesses per code** (per account, on top of the per-IP limit).
 - Changing or resetting a password **signs out every existing session**.
 - Admin user endpoints never return passwords, OTPs, reset tokens or 2FA secrets.
+- A wrong **current** password on a signed-in request (password change, account
+  deletion) is a **400**, not a 401: clients treat 401 as "session ended" and sign out.
+
+### 5. Deleting your own account
+
+Readers delete their account themselves (Google Play requires it in the app; the
+website offers the same). `services/AccountDeletion.Service.js`:
+
+1. `GET /user/deletion` says what still stops it: `{ canDelete, blockers: { reading,
+   upcoming, unconfirmed, refunds }, credits, graceDays }`. Rentals being read, booked
+   or waiting for payment review, plan payments in progress and requested refunds
+   block it. Unused plan credits don't, but must be given up.
+2. `POST /user/deletion { confirm: true, password?, giveUpCredits? }` (password for
+   accounts that have one). The account **closes at once**: every session ends
+   (`passwordChangedAt`), live sockets get `account:closed`, phones are removed from
+   push, nothing more is delivered to it, and an email confirms the date. Admin
+   accounts can't delete themselves.
+3. **Signing in again within 14 days cancels it** (any sign-in route, after 2FA);
+   the login response then has `deletionCancelled: true`.
+4. Then the hourly cron anonymises it: name "Former reader", email
+   `deleted-<id>@deleted.invalid` (the real address is free again), password, social
+   ids, 2FA, preferences (and profile picture), notifications, phones and notes on
+   followed requests are removed. Payments, rentals, reviews, book requests and
+   audit records are kept but no longer point to a person. A last email confirms it.
 - List endpoints only filter on whitelisted fields, escape search text, and cap `limit` at 100.
 
 ---
@@ -657,6 +681,8 @@ binary (~100 MB, cached afterwards).
 | PATCH | `/user/password-update` | ✅ | Change password |
 | PATCH | `/user/profile-picture` | ✅ | Set/replace avatar |
 | DELETE | `/user/remove-profile-picture` | ✅ | Remove avatar |
+| GET | `/user/deletion` | ✅ | What still stops deleting the account |
+| POST | `/user/deletion` | ✅ | Close the account; deleted after 14 days unless they sign in |
 | POST | `/common/upload` | ✅ | Image upload to Cloudinary (records ownership) |
 | POST | `/common/remove` | ✅ | Delete your own Cloudinary assets (admin: any) |
 | GET | `/book` | — | Catalogue: `search`, `category`, `language`, `sort`, `page`, `limit` |

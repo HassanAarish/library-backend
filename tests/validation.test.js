@@ -91,6 +91,16 @@ describe("auth", () => {
 });
 
 describe("profile", () => {
+  test("a wrong current password is a 400, so the session stays", async () => {
+    expect400(
+      await t.api("PATCH", "/user/password-update", {
+        token: user.token,
+        body: { currentPassword: "notThePassword1", newPassword: "Another1Pass" },
+      }),
+      /current password you entered is incorrect/,
+    );
+  });
+
   test("new password rules apply on change, and it must differ", async () => {
     expect400(
       await t.api("PATCH", "/user/password-update", {

@@ -23,6 +23,7 @@ export const cleanupUnverifiedUsers = async () => {
     // for a new OTP keeps their account until that code expires.
     const filter = {
       isVerified: false,
+      deletedAt: { $exists: false }, // anonymised accounts keep their records
       createdAt: { $lt: tenMinutesAgo },
       $or: [{ "otp.expiry": { $lt: now } }, { "otp.expiry": { $exists: false } }],
     };

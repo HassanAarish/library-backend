@@ -65,6 +65,15 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Self-service account deletion (services/AccountDeletion.Service.js):
+    // closed at requestedAt, anonymised at scheduledFor unless they sign in again.
+    deletion: {
+      requestedAt: { type: Date },
+      scheduledFor: { type: Date },
+      completedAt: { type: Date },
+    },
+    // Set once the account has been anonymised. Such users can't sign in.
+    deletedAt: { type: Date },
   },
   { timestamps: true },
 );

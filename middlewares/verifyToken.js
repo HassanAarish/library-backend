@@ -40,11 +40,16 @@ export const authenticateToken = async (token, where = {}) => {
   }
 
   const user = await User.findById(decoded.user?.userID)
-    .select("isBlocked role email passwordChangedAt")
+    .select("isBlocked role email passwordChangedAt deletion deletedAt")
     .lean();
 
-  if (!user) {
+  if (!user || user.deletedAt) {
     throw new ErrorResponse("User no longer exists.", 404);
+  }
+
+  // Closed for deletion: only signing in again (which cancels it) reopens it.
+  if (user.deletion?.scheduledFor) {
+    throw new ErrorResponse("This account is closed. Sign in again to keep it.", 401);
   }
 
   if (user.isBlocked) {

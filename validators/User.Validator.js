@@ -43,3 +43,9 @@ export const updatePassword = z
   });
 
 export const profilePicture = z.object({ profilePicture: assetRef });
+
+export const requestDeletion = z.object({
+  confirm: z.literal(true, { message: "must be true" }),
+  password: z.string().max(200).optional(),
+  giveUpCredits: z.boolean().optional(),
+});

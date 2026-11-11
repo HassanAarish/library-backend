@@ -85,7 +85,8 @@ export const updatePassword = async (userId, body, session = null) => {
   const isMatch = await user.comparePassword(currentPassword);
   if (!isMatch) {
     audit("user.password.change", { outcome: "failure", metadata: { reason: "wrong_password" } });
-    throw new ErrorResponse("The current password you entered is incorrect.", 401);
+    // 400, not 401: the session is fine, and a 401 signs the reader out.
+    throw new ErrorResponse("The current password you entered is incorrect.", 400);
   }
 
   // 3. Prevent using the same password

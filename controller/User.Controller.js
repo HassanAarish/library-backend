@@ -1,5 +1,6 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
 import * as userService from "../services/User.Service.js";
+import * as accountDeletion from "../services/AccountDeletion.Service.js";
 
 // get User's profile
 export const getUserProfile = asyncHandler(async (req, res) => {
@@ -64,5 +65,21 @@ export const removeProfilePicture = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: "Profile picture removed successfully.",
+  });
+});
+
+// --- Deleting your own account
+
+export const getDeletionStatus = asyncHandler(async (req, res) => {
+  const data = await accountDeletion.getDeletionStatus(req.userID);
+  return res.status(200).json({ success: true, data });
+});
+
+export const requestDeletion = asyncHandler(async (req, res) => {
+  const data = await accountDeletion.requestDeletion(req.userID, req.body, req.transaction);
+  return res.status(200).json({
+    success: true,
+    message: `Your account is closed and will be deleted on ${data.scheduledFor.toDateString()}. Sign in before then to keep it.`,
+    data,
   });
 });

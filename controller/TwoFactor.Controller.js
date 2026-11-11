@@ -24,6 +24,13 @@ export const disable = asyncHandler(async (req, res) => {
 
 // Login challenge — exchanges a pending token + code for a real access token.
 export const verify = asyncHandler(async (req, res) => {
-  const { token } = await twoFactorService.verifyLogin(req.body);
-  return res.status(200).json({ success: true, message: "Logged in successfully", token });
+  const { token, deletionCancelled } = await twoFactorService.verifyLogin(req.body);
+  return res.status(200).json({
+    success: true,
+    message: deletionCancelled
+      ? "Welcome back! Your account will not be deleted."
+      : "Logged in successfully",
+    token,
+    ...(deletionCancelled && { deletionCancelled: true }),
+  });
 });

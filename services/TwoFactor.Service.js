@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.Model.js";
 import ErrorResponse from "../utils/errorResponse.js";
+import { cancelDeletionOnSignIn } from "./AccountDeletion.Service.js";
 import { getEnv } from "../config/dotenv.js";
 import { generateToken } from "../utils/generateTokens.js";
 import { generateTwoFactorSecret, verifyTwoFactorCode } from "../utils/twoFactor.js";
@@ -101,5 +102,7 @@ export const verifyLogin = async (body) => {
   }
 
   audit("auth.login", { actor: user._id, actorEmail: user.email, metadata: { method: "2fa" } });
-  return { token: generateToken(user) };
+  // Signing in keeps an account that was waiting to be deleted.
+  const deletionCancelled = await cancelDeletionOnSignIn(user);
+  return { token: generateToken(user), deletionCancelled };
 };
