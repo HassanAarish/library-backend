@@ -40,6 +40,7 @@ const schema = z.object({
 
   EMAIL: required(z.email({ message: "must be an email address" })),
   PASSWORD: required(z.string()),
+  EMAIL_USER: optional(z.string()), // SMTP login when it isn't EMAIL (sending services)
   EMAIL_HOST: optional(z.string()),
   EMAIL_PORT: optional(positiveInt),
 

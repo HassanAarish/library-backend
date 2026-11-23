@@ -1,12 +1,17 @@
 import nodemailer from "nodemailer";
 import { getEnv } from "../config/dotenv.js";
 
+// EMAIL is the address mail comes from. EMAIL_USER is the SMTP login when it
+// differs, as with sending services (Brevo: an id like 8a1b2c@smtp-brevo.com;
+// Resend: "resend"); for a plain mailbox (Gmail, iCloud) leave it unset.
 const EMAIL = getEnv("EMAIL");
+const EMAIL_USER = getEnv("EMAIL_USER") || EMAIL;
 const PASSWORD = getEnv("PASSWORD");
 
 // SMTP is configurable via env so the app isn't locked to one provider.
 // Defaults to iCloud; for Gmail set EMAIL_HOST=smtp.gmail.com (port 465 or 587)
-// and use an app-specific password as PASSWORD.
+// and use an app-specific password as PASSWORD. For production use a sending
+// service (README › Deploying › Email).
 const EMAIL_HOST = getEnv("EMAIL_HOST") || "smtp.mail.me.com";
 const EMAIL_PORT = Number(getEnv("EMAIL_PORT")) || 587;
 
@@ -16,7 +21,7 @@ const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
   port: EMAIL_PORT,
   secure: EMAIL_PORT === 465, // 465 = implicit TLS, 587 = STARTTLS
-  auth: { user: EMAIL, pass: PASSWORD },
+  auth: { user: EMAIL_USER, pass: PASSWORD },
 });
 
 /**

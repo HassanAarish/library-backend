@@ -589,6 +589,7 @@ CLIENT_URL=http://localhost:5173   # used to build the password-reset link
 # Email (SMTP) — used for OTP + password-reset
 EMAIL=<smtp-account>
 PASSWORD=<app-specific-password>
+# EMAIL_USER=                  # optional; SMTP login when it isn't EMAIL (Brevo, Resend)
 # EMAIL_HOST=smtp.gmail.com    # optional; defaults to iCloud (smtp.mail.me.com)
 # EMAIL_PORT=465               # optional; defaults to 587
 
@@ -721,6 +722,26 @@ categories use the admin moderation workflow.
 _Built by Aarish · MIT License_
 
 ---
+
+## ☁️ Deploying
+
+Production runs on **Render** (web service, Singapore) with **MongoDB Atlas**:
+
+- `render.yaml` is a Render Blueprint: Node 22, `npm ci`, `npm start`, health check
+  `/health`, one instance. Every setting is listed with `sync: false`, so values are
+  typed into Render once and never committed; `SECRET_KEY` is generated.
+- Use an always-on plan (Starter) and **one instance**: the API keeps sockets open
+  and the scheduled jobs (holds, rentals, plans, account deletion) must run once.
+- `MONGO_URI`: an Atlas `mongodb+srv://` string (transactions work on every tier).
+- Put the API on its own subdomain (`api.<domain>`). If DNS is on Cloudflare, keep
+  that record **DNS only**: a second proxy would hide readers' real IPs from rate
+  limits (`trust proxy` is set for Render's one proxy).
+- **Email:** use a sending service with SMTP (e.g. Brevo, Resend) and verify your
+  domain with it. `EMAIL` is the From address, `EMAIL_USER` the service's SMTP
+  login, `PASSWORD` its SMTP key.
+- **First admin:** sign up on the website, then run
+  `node scripts/make-admin.js you@example.com` (Render › Shell).
+- Logs written to disk are lost on each deploy; the admin Logs page reads the database.
 
 ## 📜 License & contributing
 

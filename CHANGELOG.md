@@ -7,6 +7,10 @@ All notable changes to the LibraryHub API. The format follows
 ## [Unreleased]
 
 ### Added
+- Deploying to Render: `render.yaml` Blueprint (see README › Deploying) and
+  `scripts/make-admin.js` for the first admin account.
+- `EMAIL_USER`: the SMTP login when it isn't the From address, so sending services
+  such as Brevo or Resend work.
 - Account deletion: `GET`/`POST /user/deletion`. Blocked while a rental, payment or
   refund is in progress; unused credits must be given up. The account closes at once
   (sessions end, `account:closed` socket event, email), signing in within 14 days
