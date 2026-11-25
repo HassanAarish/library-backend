@@ -9,8 +9,10 @@ All notable changes to the LibraryHub API. The format follows
 ### Fixed
 - On Render every request looked like it came from Render's own internal address
   (10.x), so per-IP rate limits, the reader's network check and the activity logs
-  couldn't tell readers apart. Only internal proxy hops are trusted now, so the
-  reader's real address is used, for live-update (socket) flood logs too.
+  couldn't tell readers apart. Requests arrive reader → Cloudflare → Render →
+  app; `req.ip` now uses Cloudflare's `CF-Connecting-IP` when present, otherwise
+  skips Render's internal hops and exactly one Cloudflare hop, so the reader's
+  real address is used, for live-update (socket) flood logs too.
   `GET /admin/ip-check` (admin only) shows the address the server sees.
 - A used or expired password-reset link now says so in plain words and points to
   “Forgot password”.

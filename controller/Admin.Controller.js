@@ -14,6 +14,8 @@ export const ipCheck = (req, res) =>
       ip: req.ip,
       remoteAddress: req.socket.remoteAddress,
       forwardedFor: req.get("x-forwarded-for") ?? null,
+      cfConnectingIp: req.get("cf-connecting-ip") ?? null,
+      viaCloudflare: Boolean(req.get("cf-ray")),
     },
   });
 

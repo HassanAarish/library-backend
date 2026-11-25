@@ -3,7 +3,7 @@ import { Server } from "socket.io";
 import redis from "../config/redis.js";
 import { authenticateToken } from "../middlewares/verifyToken.js";
 import { audit } from "../utils/audit.js";
-import { clientIp } from "../utils/clientIp.js";
+import { clientIpFromHeaders } from "../utils/clientIp.js";
 
 /**
  * Real-time layer (Socket.IO).
@@ -76,7 +76,7 @@ const floodGuard = (socket) => {
         severity: "warning",
         actor: socket.data.userId,
         metadata: {
-          ip: clientIp(socket.handshake.address, socket.handshake.headers["x-forwarded-for"]),
+          ip: clientIpFromHeaders(socket.handshake.address, socket.handshake.headers),
           event: packet[0],
         },
       });
