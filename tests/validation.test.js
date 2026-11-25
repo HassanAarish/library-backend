@@ -16,9 +16,10 @@ beforeAll(async () => {
 afterAll(() => t?.close());
 
 // Auth routes are rate limited per IP; give each auth request its own client
-// address (the app trusts one proxy hop, so X-Forwarded-For sets req.ip).
+// address (the app trusts only private proxy hops, so a public X-Forwarded-For
+// address sets req.ip; 203.0.113.x is reserved for documentation and tests).
 let ipCounter = 0;
-const freshIp = () => ({ "X-Forwarded-For": `10.0.0.${++ipCounter}` });
+const freshIp = () => ({ "X-Forwarded-For": `203.0.113.${++ipCounter}` });
 
 const expect400 = (r, message) => {
   expect(r.status).toBe(400);
@@ -79,7 +80,7 @@ describe("auth", () => {
 
     r = await t.api("POST", "/auth/reset-password?token=abc", { body: { password: "brandNew1" } });
     expect(r.status).toBe(400);
-    expect(r.json.error).toBe("Invalid or Expired Link"); // got past validation to the token check
+    expect(r.json.error).toMatch(/invalid or has expired/); // got past validation to the token check
   });
 
   test("social login only knows Google and Facebook", async () => {

@@ -250,6 +250,10 @@ Dashboard: `GET /admin/stats` returns, in one call, the to-do queues
 30 days). Refunds still to send are listed with
 `GET /payment/admin?refund.status=requested`.
 
+Proxy check: `GET /admin/ip-check` returns the address the server sees for you
+(`ip`), the socket's address and the raw `X-Forwarded-For`. On the live host `ip`
+should be your own public address (see Deploying).
+
 Every error response also returns its `requestId`, so a user's complaint can be
 traced straight to the matching log entries.
 
@@ -736,7 +740,10 @@ Production runs on **Render** (web service, Singapore) with **MongoDB Atlas**:
 - `MONGO_URI`: an Atlas `mongodb+srv://` string (transactions work on every tier).
 - Put the API on its own subdomain (`api.<domain>`). If DNS is on Cloudflare, keep
   that record **DNS only**: a second proxy would hide readers' real IPs from rate
-  limits (`trust proxy` is set for Render's one proxy).
+  limits. Only internal proxy hops (10.x, 172.16/12, 192.168.x, 100.64/10, loopback)
+  are trusted, so `req.ip` is the reader's real address behind Render's proxies
+  (`utils/clientIp.js`). Check it on the live host: `GET /admin/ip-check` (admin)
+  should show your own public address.
 - **Email:** use a sending service with SMTP (e.g. Brevo, Resend) and verify your
   domain with it. `EMAIL` is the From address, `EMAIL_USER` the service's SMTP
   login, `PASSWORD` its SMTP key.

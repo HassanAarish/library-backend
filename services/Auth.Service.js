@@ -308,7 +308,10 @@ export const resetPassword = async (body, session = null) => {
 
   if (!user) {
     audit("auth.password.reset", { outcome: "failure", metadata: { reason: "invalid_token" } });
-    throw new ErrorResponse("Invalid or Expired Link", 400);
+    throw new ErrorResponse(
+      "This link is invalid or has expired. Ask for a new one from “Forgot password”.",
+      400,
+    );
   }
 
   user.password = password;

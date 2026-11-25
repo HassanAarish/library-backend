@@ -6,6 +6,15 @@ All notable changes to the LibraryHub API. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- On Render every request looked like it came from Render's own internal address
+  (10.x), so per-IP rate limits, the reader's network check and the activity logs
+  couldn't tell readers apart. Only internal proxy hops are trusted now, so the
+  reader's real address is used, for live-update (socket) flood logs too.
+  `GET /admin/ip-check` (admin only) shows the address the server sees.
+- A used or expired password-reset link now says so in plain words and points to
+  “Forgot password”.
+
 ### Security
 - `package-lock.json` is now committed, so every install (and Render) gets the
   tested versions. `npm audit` is clean: nodemon's `minimatch` is pinned to the

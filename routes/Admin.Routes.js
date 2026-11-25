@@ -9,6 +9,9 @@ const router = express.Router();
 // Dashboard: to-do queues (payments to review, refunds, requests, categories) + totals.
 router.get("/stats", verifyToken, verifyRole("admin"), adminController.getDashboardStats);
 
+// Which address the server sees for you (checks the proxy setting on a live host).
+router.get("/ip-check", verifyToken, verifyRole("admin"), adminController.ipCheck);
+
 router.get("/users", verifyToken, verifyRole("admin"), adminController.getUserLists);
 
 router.get("/user/:userId", verifyToken, verifyRole("admin"), adminController.getUserData);

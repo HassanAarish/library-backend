@@ -14,6 +14,7 @@ import requestLogger from "./middlewares/requestLogger.js";
 import verifyToken from "./middlewares/verifyToken.js";
 import verifyRole from "./middlewares/verifyRole.js";
 import { uptimeInfo } from "./utils/uptime.js";
+import { isTrustedProxy } from "./utils/clientIp.js";
 
 /**
  * The Express app only: no database connection, no listening port, no cron.
@@ -41,9 +42,10 @@ cloudinary.v2.config({
 
 const app = express();
 
-// Trust the first proxy (Render/Heroku/etc.) so req.ip reflects the real client
-// IP — required for accurate per-IP rate limiting and activity logs.
-app.set("trust proxy", 1);
+// req.ip must be the reader's real address (per-IP rate limits, the reader's
+// network checks, activity logs). Only internal proxy hops are trusted; see
+// utils/clientIp.js for why, and GET /admin/ip-check to confirm it on a host.
+app.set("trust proxy", (addr) => isTrustedProxy(addr));
 
 // First: every request gets an id + context and is recorded in the activity log.
 app.use(requestLogger);
