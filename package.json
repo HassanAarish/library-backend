@@ -78,5 +78,10 @@
     "prettier": "^3.9.10",
     "socket.io-client": "^4.8.4",
     "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "nodemon": {
+      "minimatch": "^11.0.1"
+    }
   }
 }
