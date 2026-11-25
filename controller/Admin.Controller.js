@@ -2,6 +2,21 @@ import asyncHandler from "../middlewares/asyncHandler.js";
 import * as adminService from "../services/Admin.Service.js";
 import helper from "../utils/helper.js";
 
+/**
+ * What address the server sees for the caller, and the raw proxy headers, so the
+ * admin can check that readers' real addresses are used on the live host.
+ * Only the caller's own request is shown.
+ */
+export const ipCheck = (req, res) =>
+  res.status(200).json({
+    success: true,
+    data: {
+      ip: req.ip,
+      remoteAddress: req.socket.remoteAddress,
+      forwardedFor: req.get("x-forwarded-for") ?? null,
+    },
+  });
+
 export const getUserLists = asyncHandler(async (req, res) => {
   const result = await adminService.getUserLists(req);
 

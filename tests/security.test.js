@@ -519,7 +519,7 @@ describe("reader", () => {
 
   test("reader: pulling pages too fast is throttled", async () => {
     // Many networks -> critical flag (spoofed X-Forwarded-For through trust proxy).
-    for (const ip of ["10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4"]) {
+    for (const ip of ["203.0.113.1", "203.0.113.2", "203.0.113.3", "203.0.113.4"]) {
       await t.api("GET", `/reader/${bookId}/pages/1`, {
         token: u1New,
         headers: { "X-Forwarded-For": ip },
