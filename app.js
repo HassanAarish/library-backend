@@ -14,7 +14,7 @@ import requestLogger from "./middlewares/requestLogger.js";
 import verifyToken from "./middlewares/verifyToken.js";
 import verifyRole from "./middlewares/verifyRole.js";
 import { uptimeInfo } from "./utils/uptime.js";
-import { isTrustedProxy } from "./utils/clientIp.js";
+import { clientIpFromHeaders, isInternalHop } from "./utils/clientIp.js";
 
 /**
  * The Express app only: no database connection, no listening port, no cron.
@@ -43,9 +43,19 @@ cloudinary.v2.config({
 const app = express();
 
 // req.ip must be the reader's real address (per-IP rate limits, the reader's
-// network checks, activity logs). Only internal proxy hops are trusted; see
-// utils/clientIp.js for why, and GET /admin/ip-check to confirm it on a host.
-app.set("trust proxy", (addr) => isTrustedProxy(addr));
+// network checks, activity logs). Express's "trust proxy" can't express Render's
+// chain (internal hops, then exactly one Cloudflare edge), so req.ip comes from
+// utils/clientIp.js, the same rule the live-update sockets use. Check it on a
+// host with GET /admin/ip-check. "trust proxy" itself covers internal hops only,
+// so only req.ip follows the Cloudflare rule: use req.ip, never req.ips.
+app.set("trust proxy", (addr) => isInternalHop(addr));
+Object.defineProperty(app.request, "ip", {
+  configurable: true,
+  enumerable: true,
+  get() {
+    return clientIpFromHeaders(this.socket?.remoteAddress, this.headers);
+  },
+});
 
 // First: every request gets an id + context and is recorded in the activity log.
 app.use(requestLogger);
