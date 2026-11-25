@@ -633,7 +633,8 @@ npm install
 npm run dev        # nodemon, hot reload
 ```
 
-The API runs on `http://localhost:5001`. Health check: `GET /health`.
+The API runs on `http://localhost:5001`. Health check: `GET /health` (also reports `uptime`: seconds,
+a readable form such as `2h 5m 3s`, and when the server started).
 
 
 ### Scripts
@@ -742,6 +743,8 @@ Production runs on **Render** (web service, Singapore) with **MongoDB Atlas**:
 - **First admin:** sign up on the website, then run
   `node scripts/make-admin.js you@example.com` (Render › Shell).
 - Logs written to disk are lost on each deploy; the admin Logs page reads the database.
+  It also shows `system.server.start` and `system.server.stop` (with the uptime). On
+  Render a stop can be sleeping (free plan), a deploy or a restart: all send SIGTERM.
 
 ## 📜 License & contributing
 

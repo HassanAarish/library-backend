@@ -12,6 +12,8 @@ All notable changes to the LibraryHub API. The format follows
   fixed 11.x (development tool only).
 
 ### Added
+- `/health` reports the server's uptime. Server start and stop (with its uptime) are
+  recorded in the admin Logs page as `system.server.start` / `system.server.stop`.
 - Deploying to Render: `render.yaml` Blueprint (see README › Deploying) and
   `scripts/make-admin.js` for the first admin account.
 - `EMAIL_USER`: the SMTP login when it isn't the From address, so sending services

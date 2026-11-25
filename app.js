@@ -13,6 +13,7 @@ import { globalLimiter } from "./middlewares/rateLimiter.js";
 import requestLogger from "./middlewares/requestLogger.js";
 import verifyToken from "./middlewares/verifyToken.js";
 import verifyRole from "./middlewares/verifyRole.js";
+import { uptimeInfo } from "./utils/uptime.js";
 
 /**
  * The Express app only: no database connection, no listening port, no cron.
@@ -88,6 +89,7 @@ router.get("/health", (req, res) => {
     success: true,
     port: PORT,
     mode: NODE_ENV,
+    uptime: uptimeInfo(),
     message: "Server is up and running",
   });
 });

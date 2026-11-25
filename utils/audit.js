@@ -4,7 +4,7 @@ import { redact } from "./redact.js";
 import { writeLog } from "./fileLogger.js";
 
 /**
- * Record an audit event. Fire-and-forget: callers never await it and it never
+ * Record an audit event. Fire-and-forget: callers don't await it and it never
  * throws, so logging can't break or slow a request.
  *
  * Deliberately written WITHOUT the request's Mongo transaction: failed attempts
@@ -48,7 +48,8 @@ export const audit = (action, details = {}) => {
     requestId: ctx.requestId,
   };
 
-  AuditLog.create(entry).catch((err) => {
+  // Returned only so a shutdown can wait for the write; it never rejects.
+  return AuditLog.create(entry).catch((err) => {
     console.error("Audit log write failed:", err.message);
     writeLog("audit-fallback.log", JSON.stringify(entry));
   });
