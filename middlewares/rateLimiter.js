@@ -1,0 +1,102 @@
+import { RateLimiterRedis, RateLimiterMemory } from "rate-limiter-flexible";
+import redis from "../config/redis.js";
+import { audit } from "../utils/audit.js";
+
+/**
+ * Builds an Express rate-limit middleware. Backed by Redis when available, with
+ * an in-memory `insuranceLimiter` so a Redis outage degrades to local limiting
+ * instead of locking everyone out. Without REDIS_URL it's purely in-memory.
+ *
+ * @param {object} options
+ * @param {(req) => string} [options.key] - what to count per; defaults to client IP
+ * @param {{ action: string, severity?: string }} [options.flag] - audit event raised
+ *   when the limit is first crossed; defaults to "security.rate_limited" (warning)
+ */
+export const createLimiter = ({
+  keyPrefix,
+  points,
+  duration,
+  blockDuration,
+  key = (req) => req.ip,
+  flag = { action: "security.rate_limited" },
+}) => {
+  const memory = new RateLimiterMemory({
+    keyPrefix: `${keyPrefix}_mem`,
+    points,
+    duration,
+    blockDuration,
+  });
+
+  const limiter = redis
+    ? new RateLimiterRedis({
+        storeClient: redis,
+        keyPrefix,
+        points,
+        duration,
+        blockDuration,
+        insuranceLimiter: memory,
+      })
+    : memory;
+
+  return (req, res, next) => {
+    limiter
+      .consume(key(req))
+      .then(() => next())
+      .catch((rejection) => {
+        // A thrown Error (not a rate-limit result) means the limiter backend
+        // itself failed — fail OPEN so users aren't locked out by infra issues.
+        if (rejection instanceof Error) {
+          console.error("Rate limiter error:", rejection.message);
+          return next();
+        }
+
+        // Audit only the request that first crosses the limit — a flood of
+        // blocked retries would otherwise flood the audit log too. Every 429 is
+        // still in the request log.
+        if (rejection.consumedPoints === points + 1) {
+          audit(flag.action, {
+            outcome: "failure",
+            severity: flag.severity,
+            metadata: {
+              limiter: keyPrefix,
+              reason: "rate_limit",
+              limit: `${points} per ${duration}s`,
+              path: req.originalUrl,
+              method: req.method,
+            },
+          });
+        }
+
+        const retryAfter = Math.max(1, Math.ceil((rejection.msBeforeNext || 0) / 1000));
+        res.set("Retry-After", String(retryAfter));
+        return res.status(429).json({
+          success: false,
+          error: `Too many requests. Please try again in ${retryAfter}s.`,
+        });
+      });
+  };
+};
+
+// Brute-force protection for credential/token checks (login, OTP/verify, reset).
+export const authLimiter = createLimiter({
+  keyPrefix: "rl_auth",
+  points: 10, // 10 attempts...
+  duration: 15 * 60, // ...per 15 minutes
+  blockDuration: 15 * 60, // then blocked for 15 minutes
+});
+
+// Tighter cap for endpoints that send emails (register, forgot, resend) to
+// prevent inbox flooding / mail-cost abuse.
+export const emailLimiter = createLimiter({
+  keyPrefix: "rl_email",
+  points: 5,
+  duration: 15 * 60,
+  blockDuration: 15 * 60,
+});
+
+// Loose global safety net across the whole API.
+export const globalLimiter = createLimiter({
+  keyPrefix: "rl_global",
+  points: 200, // 200 requests...
+  duration: 60, // ...per minute per IP
+});

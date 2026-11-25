@@ -1,46 +1,83 @@
 import ErrorResponse from "../utils/errorResponse.js";
-import logger from "../config/logger.cjs";
+import { getEnv } from "../config/dotenv.js";
+
+const IS_PRODUCTION = getEnv("NODE_ENV") === "production";
 
 // Middleware for handling errors
 
 const errorHandler = (err, req, res, next) => {
-  console.error(err);
-
   let error = { ...err };
   error.message = err.message;
 
-  // Duplicate key error
-  if (error.name === "MongoError" && error.code === 11000) {
-    const message = "Duplicate field value entered";
+  // Log to console for dev
+  console.error("❌ Error Intercepted:", err);
+
+  // 0. Two transactions touched the same document at once (e.g. two people
+  // booking the same slot). The loser is told to retry — never a 500.
+  if (err.code === 112 || err.hasErrorLabel?.("TransientTransactionError")) {
+    error = new ErrorResponse("Someone else just made a change here. Please try again.", 409);
+  }
+
+  // 1. Mongoose Duplicate Key (Error Code 11000)
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue || {})[0] || "value";
+    const message = `Duplicate field value entered: ${field}. Please use another value.`;
     error = new ErrorResponse(message, 400);
   }
 
-  // MongoDB CastError (Invalid ID)
-
-  if (error.name === "CastError") {
-    const message = "Resource not found";
+  // 2. Mongoose CastError (Invalid ObjectId)
+  if (err.name === "CastError") {
+    const message = `Resource not found. Invalid ID format: ${err.value}`;
     error = new ErrorResponse(message, 404);
   }
 
-  // MongoDB validation error
-
+  // 3. Mongoose ValidationError
   if (err.name === "ValidationError") {
-    const message = Object.values(err.erroors)
-      .map((error) => error.message)
+    const message = Object.values(err.errors)
+      .map((val) => val.message)
       .join(", ");
     error = new ErrorResponse(message, 400);
   }
 
-  // Log to error using the configured logger, including the complete traceback
-  logger.error(error.message || "Internal Server Error", {
-    stack: error.stack,
-  });
+  // 4. Multer File Size Limit
+  if (err.code === "LIMIT_FILE_SIZE") {
+    const message = "File is too large. Images can be up to 10MB, book PDFs up to 100MB.";
+    error = new ErrorResponse(message, 400);
+  }
 
-  // Send the error response to the client
+  // 5. Multer File Count Limit
+  if (err.code === "LIMIT_FILE_COUNT") {
+    const message = "Too many files uploaded. Maximum limit is 10 files.";
+    error = new ErrorResponse(message, 400);
+  }
 
-  res.status(error.statusCode || 500).json({
+  // 6. Malformed JSON body
+  if (err.type === "entity.parse.failed") {
+    error = new ErrorResponse("Malformed JSON in request body.", 400);
+  }
+
+  // 7. Body too large
+  if (err.type === "entity.too.large") {
+    error = new ErrorResponse("Request body is too large.", 413);
+  }
+
+  const statusCode = error.statusCode || 500;
+
+  // The real reason always goes to the activity log (RequestLog.error)…
+  res.locals.errorMessage =
+    statusCode >= 500 && err.stack ? err.stack : error.message || err.message;
+
+  // …but unexpected 500s never leak internals to the client in production.
+  const clientMessage =
+    statusCode >= 500 && IS_PRODUCTION
+      ? "Internal Server Error"
+      : error.message || "Internal Server Error";
+
+  res.status(statusCode).json({
     success: false,
-    data: { error: error.message || "Internal Server Error" },
+    // Keep the structure consistent with your other APIs
+    error: clientMessage,
+    requestId: req.requestId,
   });
 };
 

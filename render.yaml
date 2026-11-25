@@ -1,0 +1,83 @@
+# Render Blueprint for the LibraryHub API (see README › Deploying).
+# New › Blueprint in the Render dashboard, pick this repo, then fill in the
+# values Render asks for. Secrets are never written here: `sync: false` makes
+# Render ask for them once, and they stay in the dashboard.
+#
+# Choose the paid "Starter" instance (always on). The free one sleeps, which
+# stops live updates and the scheduled jobs (rentals, holds, account deletion).
+# Keep ONE instance: the scheduled jobs must not run twice.
+services:
+  - type: web
+    name: libraryhub-api
+    runtime: node
+    region: singapore
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    numInstances: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: PORT
+        value: "10000"
+
+      # Database (MongoDB Atlas, mongodb+srv://…)
+      - key: MONGO_URI
+        sync: false
+      # Signs sign-in tokens; Render generates a long random value.
+      - key: SECRET_KEY
+        generateValue: true
+
+      # The website, e.g. https://libraryhub.pk, and every origin allowed to
+      # call the API (website with and without www), comma-separated.
+      - key: CLIENT_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+      # Book files and images
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # Email (SMTP through a sending service such as Brevo or Resend).
+      # EMAIL is the From address (e.g. no-reply@yourdomain); EMAIL_USER the
+      # service's SMTP login; PASSWORD its SMTP key.
+      - key: EMAIL
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: PASSWORD
+        sync: false
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        sync: false
+
+      # Sign-in with Google / Facebook
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+
+      # Easypaisa account readers send money to
+      - key: EASYPAISA_ACCOUNT_TITLE
+        sync: false
+      - key: EASYPAISA_ACCOUNT_NUMBER
+        sync: false
+
+      # Private anti-copying limits for the reader. Required in production;
+      # choose your own numbers and never publish them.
+      - key: READER_PAGES_PER_MINUTE
+        sync: false
+      - key: READER_MAX_NETWORKS
+        sync: false
+      - key: READER_NETWORK_WINDOW_MINUTES
+        sync: false

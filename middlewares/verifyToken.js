@@ -1,0 +1,99 @@
+import { getEnv } from "../config/dotenv.js";
+import User from "../models/User.Model.js";
+import ErrorResponse from "../utils/errorResponse.js";
+import { audit } from "../utils/audit.js";
+import { getContext } from "../utils/requestContext.js";
+import jwt from "jsonwebtoken";
+
+const SECRET_KEY = getEnv("SECRET_KEY");
+
+/**
+ * Check a JWT and return the live user it belongs to. Shared by HTTP requests
+ * and socket connections so both enforce the same rules.
+ *
+ * Blocked status, current role, and password changes are read from the DB so
+ * they take effect immediately, not when the token expires.
+ *
+ * @param {string} token
+ * @param {object} [where] - extra audit metadata (path, method, transport)
+ * @returns {Promise<{ user: object, issuedAt: number }>} issuedAt in ms
+ * @throws {ErrorResponse}
+ */
+export const authenticateToken = async (token, where = {}) => {
+  if (!token) {
+    throw new ErrorResponse("No access token was provided.", 401);
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, SECRET_KEY);
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      throw new ErrorResponse("Token has expired.", 401);
+    }
+    // A bad signature or malformed token is a tampering signal, not normal expiry.
+    audit("auth.token.invalid", {
+      outcome: "failure",
+      metadata: { reason: error.message, ...where },
+    });
+    throw new ErrorResponse("Not authorized to access this route", 401);
+  }
+
+  const user = await User.findById(decoded.user?.userID)
+    .select("isBlocked role email passwordChangedAt deletion deletedAt")
+    .lean();
+
+  if (!user || user.deletedAt) {
+    throw new ErrorResponse("User no longer exists.", 404);
+  }
+
+  // Closed for deletion: only signing in again (which cancels it) reopens it.
+  if (user.deletion?.scheduledFor) {
+    throw new ErrorResponse("This account is closed. Sign in again to keep it.", 401);
+  }
+
+  if (user.isBlocked) {
+    audit("auth.blocked_user_access", {
+      outcome: "failure",
+      actor: user._id,
+      actorEmail: user.email,
+      metadata: where,
+    });
+    throw new ErrorResponse("Account is suspended. Please contact support.", 403);
+  }
+
+  // Tokens issued before the last password change are no longer valid.
+  const issuedAt = decoded.iat * 1000;
+  if (user.passwordChangedAt && issuedAt < new Date(user.passwordChangedAt).getTime()) {
+    throw new ErrorResponse("Your session has expired. Please log in again.", 401);
+  }
+
+  return { user, issuedAt };
+};
+
+const verifyToken = async (req, res, next) => {
+  const token = req.headers.authorization?.startsWith("Bearer")
+    ? req.headers.authorization.split(" ")[1]
+    : undefined;
+
+  let user;
+  try {
+    ({ user } = await authenticateToken(token, { path: req.originalUrl, method: req.method }));
+  } catch (err) {
+    return next(err);
+  }
+
+  req.userID = String(user._id);
+  req.role = user.role;
+  req.userEmail = user.email;
+
+  // Expose the identity to the activity logs for the rest of this request.
+  const context = getContext();
+  context.userId = req.userID;
+  context.role = req.role;
+  context.userEmail = req.userEmail;
+
+  next();
+};
+
+export default verifyToken;

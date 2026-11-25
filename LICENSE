@@ -1,0 +1,44 @@
+LibraryHub Source-Available License
+Copyright (c) 2026 Aarish (https://github.com/HassanAarish). All rights reserved.
+
+This repository is part of LibraryHub (the backend API, the website and the
+Android app). Its source code is published so people can read it, report
+problems and contribute improvements. It is NOT open source.
+
+1. What you may do
+   a. View and read the source code.
+   b. Download or clone it and run it on your own devices, only to study it,
+      test it, or prepare a contribution to this repository.
+   c. Make changes in your own copy (a fork) only to submit them back to this
+      repository as a contribution (a pull request or patch).
+
+2. What you may not do (without written permission from the copyright holder)
+   a. Use the code, or any part of it, in another product, service, website or
+      app, commercial or not.
+   b. Run it, or a modified version of it, as a service for others, or publish
+      an app built from it (on Google Play or anywhere else).
+   c. Copy, redistribute, sublicense or sell the code or any part of it,
+      except as part of a contribution to this repository.
+   d. Remove or change this license or the copyright notices.
+
+3. Contributions
+   By submitting a contribution (code, documentation, design or any other
+   material) to this repository, you agree to the terms in CONTRIBUTING.md,
+   including that you grant the copyright holder the rights described there.
+   If you do not agree, do not submit a contribution.
+
+4. Names and brands
+   "LibraryHub" and its logo are not licensed to you under these terms.
+
+5. No warranty
+   The code is provided "as is", without warranty of any kind, express or
+   implied, including fitness for a particular purpose and non-infringement.
+   In no event shall the copyright holder be liable for any claim, damages or
+   other liability arising from the code or its use.
+
+6. Ending
+   If you break these terms, your permission under section 1 ends
+   immediately.
+
+For permission to use the code in other ways, open an issue in this
+repository or contact the copyright holder through GitHub.
