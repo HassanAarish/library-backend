@@ -6,6 +6,11 @@ All notable changes to the LibraryHub API. The format follows
 
 ## [Unreleased]
 
+### Security
+- `package-lock.json` is now committed, so every install (and Render) gets the
+  tested versions. `npm audit` is clean: nodemon's `minimatch` is pinned to the
+  fixed 11.x (development tool only).
+
 ### Added
 - Deploying to Render: `render.yaml` Blueprint (see README › Deploying) and
   `scripts/make-admin.js` for the first admin account.
